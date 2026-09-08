@@ -1,0 +1,50 @@
+# Third-Party Licenses and Attributions
+
+This application incorporates third-party software components under their respective open-source licenses.
+
+---
+
+### 1. pypresence
+* **Usage:** Interfacing with Discord's Rich Presence API.
+* **License:** MIT License
+* **Repository:** https://github.com/qwertyquopp/pypresence
+
+---
+
+### 2. psutil
+* **Usage:** Process scanning and system activity monitoring.
+* **License:** BSD 3-Clause License
+* **Repository:** https://github.com/giampaolo/psutil
+
+---
+
+### 3. Pillow (PIL)
+* **Usage:** Image creation and icon rendering for the system tray.
+* **License:** HPND License (BSD-like)
+* **Repository:** https://github.com/python-pillow/Pillow
+
+---
+
+### 4. pystray
+* **Usage:** System tray icon and context menu management.
+* **License:** LGPLv3 / GPLv3 License
+* **Repository:** https://github.com/moses-palmer/pystray
+
+---
+
+### 5. websocket-client
+* **Usage:** WebSocket communication for Chrome DevTools Protocol (CDP) live data.
+* **License:** Apache License 2.0
+* **Repository:** https://github.com/websocket-client/websocket-client
+
+---
+
+### 6. KanColle-Map-data
+* **Usage:** Showing the battle node.
+* **License:** Unknown
+* **Repository:** https://raw.githubusercontent.com/kcwiki/kancolle-data/master/map/edge.json
+
+---
+
+### Python Standard Library
+This software utilizes standard modules from the Python runtime (`tkinter`, `json`, `ctypes`, `urllib`, `threading`, `queue`, `psutil`, etc.), which are subject to the **Python Software Foundation (PSF) License Agreement**.

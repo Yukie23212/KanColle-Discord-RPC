@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Discord RPC Manager — User Guide</title>
+<style>
+  :root {
+    --blurple: #5865F2;
+    --blurple-dark: #4752C4;
+    --ink: #1e1f22;
+    --muted: #5b5e66;
+    --border: #E3E5E8;
+    --panel: #F6F7FF;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+    line-height: 1.6;
+    background: #ffffff;
+  }
+  .page {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+  header.hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 16px;
+  border-bottom: 4px solid var(--blurple);
+  padding-bottom: 18px;
+  margin-bottom: 8px;
+  }
+
+  .hero-title h1 {
+    margin: 0 0 4px;
+  }
+
+  .hero-title p {
+    margin: 0;
+  }
+
+  .license-badge-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.82em;
+    color: var(--muted);
+    text-align: right;
+    margin-bottom: 4px;
+  }
+
+  .license-badge-top img {
+    display: block;
+  }
+  h1 {
+    color: var(--blurple);
+    font-size: clamp(24px, 5vw, 34px);
+    margin: 0 0 12px;
+  }
+  header.hero p {
+    font-size: 1.05em;
+    color: var(--ink);
+    margin: 0;
+  }
+  h2 {
+    color: var(--blurple-dark);
+    font-size: 1.5em;
+    margin-top: 2.2em;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    scroll-margin-top: 16px;
+  }
+  h3 {
+    color: #3a3f9b;
+    font-size: 1.15em;
+    margin-top: 1.6em;
+    scroll-margin-top: 16px;
+  }
+  hr {
+    display: none;
+  }
+  code {
+    background: var(--panel);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: "Consolas", "SFMono-Regular", Menlo, monospace;
+    font-size: 0.92em;
+    color: var(--blurple-dark);
+    word-break: break-word;
+  }
+  pre {
+    background: #2b2d31;
+    color: #dbdee1;
+    padding: 14px 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-size: 0.92em;
+  }
+  pre code {
+    background: none;
+    color: inherit;
+    padding: 0;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 14px 0;
+    font-size: 0.95em;
+    display: block;
+    overflow-x: auto;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: var(--panel);
+    color: var(--blurple-dark);
+    white-space: nowrap;
+  }
+  tr:nth-child(even) td {
+    background: #FAFAFB;
+  }
+  .back-to-top {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background-color: var(--blurple);
+  color: #ffffff;
+  padding: 8px 14px;
+  border-radius: 20px;
+  text-decoration: none;
+  font-weight: bold;
+  font-size: 0.88em;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: background-color 0.2s ease;
+  z-index: 1000;
+  }
+
+  .back-to-top:hover {
+    background-color: var(--blurple-dark);
+    color: #ffffff;
+  }
+  a {
+    color: var(--blurple);
+  }
+  strong {
+    color: #111214;
+  }
+  ul, ol {
+    padding-left: 1.4em;
+  }
+  li {
+    margin-bottom: 4px;
+  }
+  .toc {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 20px;
+    margin: 24px 0 32px;
+  }
+  .toc summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--blurple-dark);
+    padding: 8px 0;
+  }
+  .toc ul {
+    margin: 8px 0 12px;
+    padding-left: 1.2em;
+    columns: 2;
+    -webkit-columns: 2;
+  }
+  html {
+  scroll-behavior: auto;
+  }
+  
+  @media (max-width: 600px) {
+    .toc ul { columns: 1; }
+  }
+  .toc li { margin-bottom: 6px; }
+  .toc a { text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  footer {
+    margin-top: 48px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-style: italic;
+    font-size: 0.95em;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+<header class="hero" id="top">
+  <div class="hero-title">
+    <h1>Discord RPC Manager</h1>
+    <p>User Guide</p>
+  </div>
+  
+  <div class="license-badge-top">
+    <span>&copy; 2026 harunoyukie.<br>Licensed under <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="license noopener noreferrer">CC BY-NC 4.0</a></span>
+  </div>
+</header>
+
+<details class="toc" open>
+  <summary>Contents</summary>
+  <ul>
+      <li><a href="#what-this-does">What this does</a></li>
+      <li><a href="#requirements">Requirements</a></li>
+      <li><a href="#quick-start-5-minutes">Quick Start (5 minutes)</a></li>
+      <li><a href="#startup-options">Startup Options</a></li>
+      <li><a href="#troubleshooting">Troubleshooting</a></li>
+      <li><a href="#Contact">Contact</a></li>
+      <li><a href= "#Placeholder">Placeholder (KanColle)</a></li>
+      <li><a href= "#Preset">Preset</a></li>
+      <li><a href= "#Copyright">Copyright</a></li>
+  </ul>
+</details>
+
+<p>Show a custom Discord Rich Presence (the “Playing…” status under your
+name) for any app or game on your PC — automatically, with no need to
+keep a script running by hand.</p>
+<p>This guide covers everything from a first-time setup to the advanced
+KanColle live-data mode. If you just want the basics working in five
+minutes, follow <strong>Quick Start</strong> below and stop there —
+everything after it is optional.</p>
+<hr />
+<h2 id="what-this-does">What this does</h2>
+<ul>
+<li>Watches the programs running on your PC.</li>
+<li>When one you’ve set up starts, it shows a custom status on your
+Discord profile — your own text, your own images, optional clickable
+buttons, and an optional party/team size counter.</li>
+<li>When it closes, the status clears automatically.</li>
+<li>Can launch with Windows and run quietly in the background, so once
+it’s set up you never have to touch it again.</li>
+<li>Keep as many separate config files as you like, and switch between
+them from the File menu.</li>
+<li>Optional: for the browser game KanColle (via the Damecon browser),
+it can show <strong>live</strong> info — your Admiral level, current
+fleet, sortie status, and resources — updating in real time instead of a
+fixed message.</li>
+</ul>
+<hr />
+<h2 id="comes-ready-to-go-the-starter-config.json">Comes ready to go:
+the starter config.json</h2>
+<p>This app ships with a <code>config.json</code> already partly filled
+in, so most people can skip building anything from scratch. Out of the
+box it includes:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Group</th>
+<th>What it’s set up for</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>KanColle — Static text</strong></td>
+<td>A fixed, unchanging status for KanColle (via Damecon), showing a
+server/anchorage line and an ID line. Disabled by default.</td>
+</tr>
+<tr class="even">
+<td><strong>Girls’ Frontline 2: Exilium</strong></td>
+<td>A fixed status for GF2, showing a UID and server line. Enabled by
+default.</td>
+</tr>
+<h1 id="Preset"></h1>
+<tr class="odd">
+<td><strong>KanColle — Dynamic</strong></td> 
+<td>The full live-data version for KanColle, with <strong>Watch live
+game data</strong> already turned on. Holds six ready-made Variant
+presets (see below) — one is enabled by default, the other five are there
+to try or repurpose.</td>
+</tr>
+</tbody>
+</table>
+<p>The KanColle Dynamic group’s six presets, all using the
+placeholders explained in <em>Advanced: KanColle Live Data</em>:</p>
+<table>
+<colgroup>
+<col style="width: 22%" />
+<col style="width: 78%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Preset</th>
+<th>Shows</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Kancolle Preset 1</strong></td>
+<td>Fleet status + map location + fleet composition as Details; a dynamic
+party count (total ships held, shown as Discord's party number out of
+100) instead of a plain ship-count line. Disabled by default — a good
+one to enable if you want the party counter.</td>
+</tr>
+<tr class="even">
+<td><strong>Kancolle Preset 2</strong></td>
+<td>Fleet status + fleet composition as Details; ship count and
+resources as State. Enabled by default — the most “at a glance” of the
+six.</td>
+</tr>
+<tr class="odd">
+<td><strong>Kancolle Preset 3</strong></td>
+<td>Adds the current map node and battle rank on top of Preset 2’s info.
+Disabled by default — the most detailed option.</td>
+</tr>
+<tr class="even">
+<td><strong>Kancolle Preset 4</strong></td>
+<td>Same information as Preset 2, reordered — fleet name and ship count
+lead, status comes last, and resources are separated with slashes
+instead of pipes. Disabled by default.</td>
+</tr>
+<tr class="odd">
+<td><strong>Kancolle Preset 5</strong></td>
+<td>Same information as Preset 2, styled with brackets around the fleet
+name and each resource spelled out with its own label (Fuel/Ammo/Steel/Bauxite).
+Disabled by default.</td>
+</tr>
+<tr class="even">
+<td><strong>Kancolle Preset 6</strong></td>
+<td>The most compact styling of the six — dot separators throughout and
+single-letter resource labels (F/A/S/B). Disabled by default.</td>
+</tr>
+</tbody>
+</table>
+<p><em>Heads up:</em> Preset 1’s State text currently ends with a
+literal “Ships held” with no number in front of it (it reads
+<code>...| Ships held</code> instead of <code>...| {ship_count} Ships
+held</code>) — worth double-checking if you plan to enable that one, in
+case a placeholder got dropped by accident while editing.</p>
+<p><strong>To use any of these, just:</strong></p>
+<ol type="1">
+<li>Select the Group/Variant you want in the app.</li>
+<li>Replace the placeholder <strong>Client ID</strong> with your own
+(see <em>Quick Start</em>, step 2, for how to get one).</li>
+<li>Optionally edit the personal details already sitting in the text —
+e.g. the example admiral/UID numbers in Details/State — to your own, or
+leave them out entirely.</li>
+<li>Enable the Group if it isn’t already, and disable whichever ones
+you’re not using.</li>
+</ol>
+<p>Nothing here is locked in — you can freely edit, delete, or add new
+Groups/Variants the same way described in <em>Quick Start</em> below,
+whether that’s tweaking these examples or setting up an entirely
+different game.</p>
+<hr />
+<h2 id="requirements">Requirements</h2>
+<ul>
+<li><strong>Windows</strong> (some features — starting with Windows, and
+the KanColle live-data mode — are Windows-only; the core Rich Presence
+feature works anywhere Python/the app runs, but this guide assumes
+Windows since that’s what the <code>.exe</code> is built for).</li>
+<li><strong>Discord desktop app</strong>, installed and running. (Rich
+Presence does not work through Discord in a browser tab.)</li>
+<li>A free Discord account — you’ll create one small “Discord
+Application” per look you want to show (takes under a minute each;
+explained below).</li>
+</ul>
+<hr />
+<h2 id="quick-start-5-minutes">Quick Start (5 minutes)</h2>
+<ol type="1">
+<li><strong>Download and run</strong>
+<code>DiscordRPCManager.exe</code>. <code>config.json</code> will be
+created automatically next to it the first time you run it — that file
+stores all your settings, so keep it in the same folder as the
+<code>.exe</code>.</li>
+<li><strong>Create a Discord Application:</strong>
+<ul>
+<li>Go to the <a
+href="https://discord.com/developers/applications">Discord Developer
+Portal</a> → <strong>New Application</strong>.</li>
+<li>Name it whatever you want shown as the title on your Discord profile
+(e.g. “Minecraft”, “My Cool Status”) — this name becomes the bold title
+line, so pick it carefully.</li>
+<li>Copy the <strong>Application ID</strong> shown under <em>General
+Information</em> — this is your <strong>Client ID</strong>.</li>
+</ul></li>
+<li>In the app, click <strong>Add Group</strong>:
+<ul>
+<li><strong>Process Name</strong>: the exact <code>.exe</code> name of
+the program you want to track, as it appears in Task Manager →
+<em>Details</em> tab (e.g. <code>notepad.exe</code>,
+<code>javaw.exe</code>).</li>
+<li>Leave it <strong>Enabled</strong> and click Save.</li>
+</ul></li>
+<li>Select the new Group, click <strong>Add Variant</strong>:
+<ul>
+<li><strong>Discord Client ID</strong>: paste the Application ID from
+step 2.</li>
+<li><strong>Details</strong> / <strong>State</strong>: the two lines of
+text you want shown.</li>
+<li><em>(Optional)</em> <strong>Large Image Key</strong> / <strong>Large
+Image Text</strong>: either an asset key you uploaded under your Discord
+Application’s <em>Rich Presence → Art Assets</em> tab,
+<strong>or</strong> a direct image URL
+(e.g. <code>https://i.ibb.co/yourimage.png</code>) — both work, see
+<em>Images</em> below.</li>
+<li>Click Save.</li>
+</ul></li>
+<li>Click <strong>Start Monitoring</strong>.</li>
+</ol>
+<p>That’s it — open the program you configured, and your Discord status
+should update within a few seconds (check the <strong>Activity
+Log</strong> at the bottom of the window if it doesn’t).</p>
+<hr />
+<h2 id="understanding-groups-and-variants">Understanding Groups and
+Variants</h2>
+<ul>
+<li>A <strong>Group</strong> = one program (one process name) you want
+to track.</li>
+<li>Each Group holds one or more <strong>Variants</strong> — a full look
+(Client ID + text + images). If a Group has more than one Variant,
+<strong>one is picked at random</strong> every time that program starts,
+and it stays active the whole time that program keeps running. Next time
+it launches, a new one is rolled.</li>
+</ul>
+<p>This is useful if you want some variety — e.g. two or three different
+flavor messages for the same game, shown randomly each session — without
+having to pick one manually every time.</p>
+<p><strong>Important:</strong> the bold title line on Discord is not
+free-form for every setup — normally it comes from the name you gave the
+Discord Application in step 2. This app also supports a <strong>Discord
+Name</strong> field per Variant, which <em>can</em> override that title
+independently of the Application’s registered name — if you want
+different Variants under the same Group to show different titles, set a
+different Discord Name on each, using the <em>same</em> Client ID.</p>
+<h3 id="images-asset-key-or-direct-url-both-work">Images: asset key or
+direct URL — both work</h3>
+<p>For <strong>Large Image Key</strong> and <strong>Small Image
+Key</strong>, you have two options:</p>
+<ul>
+<li><p><strong>An asset key</strong> — upload an image under your
+Discord Application’s <em>Rich Presence → Art Assets</em> tab, and enter
+the name you gave it there.</p></li>
+<li><p><strong>A direct image URL</strong> — paste a full link straight
+to an image file, e.g.:</p>
+<pre><code>https://i.ibb.co/7tXZBHyx/Kantai-Collection-logo.png</code></pre>
+<p>No uploading to Discord needed — free image hosts like <a
+href="https://ibb.co">ibb.co</a> work well for this. Just make sure the
+link points directly at the image file itself (not a webpage that merely
+displays it), and that it stays online — if the host ever takes the
+image down, the image will stop showing on Discord.</p></li>
+</ul>
+<p>Both approaches work equally well; pick whichever is more convenient.
+The starter config that ships with this app uses direct URLs for its
+example images. (Note: what Discord calls the image “Text” field — the
+tooltip shown on hover — appears in this app as <strong>Large Image
+Text</strong> / <strong>Small Image Text</strong>.)</p>
+<p>Each image also has an optional <strong>Large/Small Image
+URL</strong> field — set this and clicking the image on Discord opens
+that link in a browser, e.g. linking your large image to your
+community’s Discord server or website.</p>
+<h3 id="party-show-a-x-of-y-count">Party — show a “X of Y” count</h3>
+<p>Under the <strong>Party</strong> section of a Variant, two
+fields:</p>
+<ul>
+<li><strong>Party Current</strong> — e.g. <code>2</code></li>
+<li><strong>Party Max</strong> — e.g. <code>5</code></li>
+</ul>
+<p>Set both to show something like <code>(2 of 5)</code> next to your
+State line on Discord — useful for anything with a group/team/lobby
+size. Leave <strong>Party Max</strong> at <code>0</code> (the default)
+to hide this entirely.</p>
+<p><strong>Dynamic Party Current:</strong> tick <strong>Dynamic Party
+Current (use {ship_count})</strong> below the Party fields and, instead
+of a fixed number, Party Current will automatically track your live
+<code>{ship_count}</code> (total ships held) — handy for a KanColle
+Variant with live data enabled, so the count updates on its own as your
+roster grows, with Party Max acting as the cap (e.g. <code>100</code>,
+your storage limit).</p>
+<h3 id="buttons-up-to-two-clickable-links">Buttons — up to two clickable
+links</h3>
+<p>Under the <strong>Buttons</strong> section of a Variant, you can set
+up to two buttons that appear on the activity card:</p>
+<ul>
+<li><strong>Button 1/2 Label</strong> — the button’s text,
+e.g. <code>Visit Website</code> (max 32 characters)</li>
+<li><strong>Button 1/2 URL</strong> — where it goes, must start with
+<code>http://</code> or <code>https://</code></li>
+</ul>
+<p>Both the label and URL must be filled in together for a button to
+show — leave both blank to skip it.</p>
+<p><strong>Important Discord quirk:</strong> buttons are only visible to
+<em>other people</em> looking at your profile — Discord never shows your
+own activity’s buttons back to you. If you’ve set one up correctly and
+it’s not appearing, ask a friend to check your profile rather than
+assuming it’s broken.</p>
+<hr />
+<h2 id="startup-options">Startup Options</h2>
+<p>Found in the box near the top of the window. All three are optional,
+and combine well if you want the whole thing to run with zero clicks
+after the first setup:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Option</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Auto-start monitoring on launch</strong></td>
+<td>Skips clicking “Start Monitoring” — it begins the moment the app
+opens.</td>
+</tr>
+<tr class="even">
+<td><strong>Minimize to tray immediately after launch</strong></td>
+<td>Hides straight to the system tray instead of showing the window.
+Right-click the tray icon any time to reopen it, or to stop/start
+monitoring.</td>
+</tr>
+<tr class="odd">
+<td><strong>Start with Windows</strong></td>
+<td>Registers the app to launch automatically every time you log into
+Windows.</td>
+</tr>
+</tbody>
+</table>
+<p>With all three on: log in → the app launches → starts monitoring →
+hides itself. You’ll never need to open it again unless you want to
+change something.</p>
+<hr />
+<h2 id="managing-multiple-config-files">Managing multiple config
+files</h2>
+<p>You’re not limited to a single <code>config.json</code>. Use the
+<strong>File</strong> menu at the top of the window:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Menu item</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>New Config</strong></td>
+<td>Clears everything currently loaded and starts a blank setup. Asks
+first if you have unsaved changes.</td>
+</tr>
+<tr class="even">
+<td><strong>Open Config…</strong></td>
+<td>Loads a different <code>.json</code> file you’ve saved before,
+replacing what’s currently loaded.</td>
+</tr>
+<tr class="odd">
+<td><strong>Save</strong></td>
+<td>Saves to whichever file is currently loaded (shown in the window’s
+title bar).</td>
+</tr>
+<tr class="even">
+<td><strong>Save As…</strong></td>
+<td>Saves the current setup to a new file, and switches to using that
+file from now on.</td>
+</tr>
+</tbody>
+</table>
+<p>This is useful for keeping separate setups for separate purposes —
+e.g. one config for gaming nights, another for work-from-home apps — and
+switching between them without having to rebuild anything. Switching
+files stops monitoring first if it’s running, and the window title
+always shows which file is currently active.</p>
+<hr />
+<h2 id="advanced-kancolle-live-data-optional">Advanced: KanColle Live
+Data (optional)</h2>
+<p>This section is only relevant if you play <strong>KanColle</strong>
+(Kantai Collection) through the <strong>Damecon</strong> browser and
+want your Discord status to show live info — Admiral level, current
+fleet, sortie/battle status, resources — instead of fixed text.</p>
+<h3 id="how-it-works">How it works</h3>
+<p>Damecon is built on Electron (Chromium), and KanColle’s client
+fetches all of its game data as plain JSON over the network. This app
+reads that same traffic locally, the same way established community
+tools for this game already do — it does <strong>not</strong> read game
+memory or inject code into the game itself.</p>
+<h3 id="setup">Setup</h3>
+<ol type="1">
+<li><strong>Launch Damecon with two extra flags.</strong> The easiest
+way is to edit its shortcut:
+<ul>
+<li><p>Right-click your Damecon shortcut → <strong>Properties</strong> →
+<strong>Shortcut</strong> tab → <strong>Target</strong> field.</p></li>
+<li><p>Add to the end of the existing path:</p>
+<pre><code>--remote-debugging-port=9222 --remote-allow-origins=*</code></pre></li>
+<li><p>The full Target line should look like:</p>
+<pre><code>&quot;C:\Path\To\damecon-browser.exe&quot; --remote-debugging-port=9222 --remote-allow-origins=*</code></pre></li>
+<li><p>Both flags are required — the first opens the debug connection,
+the second is required by Chromium for the connection to actually be
+allowed.</p></li>
+<li><p>Always launch Damecon from this shortcut going forward.</p></li>
+</ul></li>
+<li>In the RPC Manager, add a Group with <strong>Process Name</strong>
+<code>damecon-browser.exe</code>.</li>
+<li>Inside that Group’s settings, find <strong>Live data
+(KanColle-style, via Chrome DevTools)</strong> and enable <strong>Watch
+live game data</strong>. Leave the CDP port at <code>9222</code> unless
+you changed it above.</li>
+<li>Add a Variant as usual, but use placeholders in
+<strong>Details</strong>/<strong>State</strong> instead of fixed text.
+The full set:</li>
+</ol>
+<h2 id="Placeholder"></h2>
+<p><strong>Admiral</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th>Placeholder</th>
+<th>Shows</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>{admiral_nickname}</code></td>
+<td>Admiral/player nickname</td>
+<td><code>Haru</code></td>
+</tr>
+<tr class="even">
+<td><code>{admiral_level}</code></td>
+<td>Admiral/HQ level</td>
+<td><code>86</code></td>
+</tr>
+<tr class="odd">
+<td><code>{admiral_rank}</code></td>
+<td>Admiral rank value</td>
+<td><code>1</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Fleet &amp; Ships</strong></p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Placeholder</th>
+<th>Shows</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>{fleet_name}</code></td>
+<td>Fleet #1’s name</td>
+<td><code>(」゜ロ゜)」</code></td>
+</tr>
+<tr class="even">
+<td><code>{fleet_status}</code></td>
+<td>Current high-level status — in port, on expedition, on sortie, in
+battle, or a battle result</td>
+<td><code>On Sortie: World 1-5</code></td>
+</tr>
+<tr class="odd">
+<td><code>{fleet_ship_count}</code></td>
+<td>Ships currently assigned to Fleet #1</td>
+<td><code>4</code></td>
+</tr>
+<tr class="even">
+<td><code>{ship_count}</code></td>
+<td>Total ships held</td>
+<td><code>120</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Map &amp; Node</strong></p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Placeholder</th>
+<th>Shows</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>{map_area}</code></td>
+<td>World/area number</td>
+<td><code>1</code></td>
+</tr>
+<tr class="even">
+<td><code>{map_info}</code></td>
+<td>Map number within that world</td>
+<td><code>5</code></td>
+</tr>
+<tr class="odd">
+<td><code>{location_text}</code></td>
+<td>Ready-made combined location text
+(<code>: {map_area}-{map_info}</code>)</td>
+<td><code>: 1-5</code></td>
+</tr>
+<tr class="even">
+<td><code>{map_node}</code></td>
+<td>The player-facing node letter, resolved from community map data</td>
+<td><code>J</code></td>
+</tr>
+<tr class="odd">
+<td><code>{map_node_text}</code></td>
+<td>Same as above with “Node” added</td>
+<td><code>Node J</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Raw map-cell values</strong> (mostly for advanced/debugging
+use — <code>{map_node}</code> is what you want for a normal
+display):</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Placeholder</th>
+<th>Shows</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>{api_no}</code></td>
+<td>Raw current map-cell number reported by the game</td>
+<td><code>12</code></td>
+</tr>
+<tr class="even">
+<td><code>{map_cell_no}</code></td>
+<td>Alias of <code>{api_no}</code></td>
+<td><code>12</code></td>
+</tr>
+<tr class="odd">
+<td><code>{api_id}</code></td>
+<td>Internal map-cell ID (not the same as the node letter)</td>
+<td><code>3104</code></td>
+</tr>
+<tr class="even">
+<td><code>{map_cell_id}</code></td>
+<td>Alias of <code>{api_id}</code> when available</td>
+<td><code>3104</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Battle</strong></p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Placeholder</th>
+<th>Shows</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>{battle_rank}</code></td>
+<td>Battle result rank — empty until a battle actually finishes</td>
+<td><code>S</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Resources</strong></p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Placeholder</th>
+<th>Shows</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>{fuel}</code> <code>{ammo}</code> <code>{steel}</code>
+<code>{bauxite}</code></td>
+<td>Current amounts, auto-formatted with “k” for thousands</td>
+<td><code>12k</code></td>
+</tr>
+</tbody>
+</table>
+<p>Example:</p>
+<pre><code>Details: {fleet_status} {map_node_text} {battle_rank} — Fleet: {fleet_name} ({fleet_ship_count}/6 ships)
+State:   {ship_count} Ships held | Resource: {fuel} | {ammo} | {steel} | {bauxite}</code></pre>
+<p><strong>A couple of things worth knowing:</strong></p>
+<ul>
+<li><code>{map_node}</code> isn’t guaranteed for every map — it’s
+resolved from a community-maintained dataset covering the regular World
+1–7 maps. Event maps aren’t necessarily covered, so don’t rely on it
+there until you’ve confirmed it works for that specific event.</li>
+<li><code>{map_area}</code>-<code>{map_info}</code> describes the
+<em>world/map</em> (e.g. “World 1-5”), while <code>{map_node}</code>
+describes the <em>node</em> you’re currently on within it (e.g. “J”) —
+they answer different questions and are often used together.</li>
+</ul>
+<ol start="5" type="1">
+<li>Open KanColle in Damecon and start monitoring. Give it a little
+while after opening — some of this data (like your Admiral level) is
+only sent by the game once, right when it loads, so a few fields may
+show a dash or stay blank at first. If you use a placeholder name that
+doesn’t exist (a typo, for instance), it’ll show as a literal
+<code>?</code> instead — that’s your signal something’s misspelled, not
+that the data isn’t ready yet.</li>
+</ol>
+<p>If real data never shows up, check the Activity Log — it reports
+exactly what it did and didn’t manage to read.</p>
+<hr />
+<h2 id="troubleshooting">Troubleshooting</h2>
+<p><strong>Nothing shows up on Discord at all:</strong></p>
+<ul>
+<li>Is the Discord desktop app actually open?</li>
+<li>Is the Group enabled, and does its Process Name exactly match what’s
+in Task Manager?</li>
+<li>Does the active Variant have a real Client ID (not left blank, not
+still saying “YOUR_DISCORD…”)?</li>
+<li>Check the Activity Log for a connection error.</li>
+</ul>
+<p><strong>Two Variants look identical on Discord even though I set
+different text:</strong></p>
+<ul>
+<li>If they share the same Client ID <em>and</em> you didn’t set a
+Discord Name on each, the title will be identical — only Details/State
+will differ. Set a distinct Discord Name per Variant, or use separate
+Discord Applications, if you want fully distinct-looking
+activities.</li>
+</ul>
+<p><strong>Can I use the same Client ID for multiple games/Groups at
+once?</strong></p>
+<ul>
+<li>A single Discord Application (Client ID) can only power <strong>one
+active connection at a time</strong> — that's a Discord limit, not
+something this app controls. It's fine to reuse the same Client ID
+across different Variants as long as they're never meant to show
+<em>at the same moment</em> (which is normally the case here anyway,
+since this app only ever displays one activity at a time).</li>
+<li>Where this actually causes a problem: running <em>two separate
+things</em> that both try to connect with the same Client ID
+simultaneously — for example, two copies of this app pointed at
+different configs, or this app running alongside another Rich Presence
+tool sharing the same Client ID. Only one connection can hold that
+Client ID at a time; the other will fail to connect or get bumped.</li>
+<li>The fix is simple: give each game/project its own Discord
+Application (a new one takes under a minute to create — see <em>Quick
+Start</em>, step 2) rather than sharing one Client ID across anything
+that might run at the same time.</li>
+</ul>
+<p><strong>KanColle placeholders showing a dash, blank, or not
+updating:</strong></p>
+<ul>
+<li>Confirm Damecon was launched with <em>both</em> flags
+(<code>--remote-debugging-port=9222</code> and
+<code>--remote-allow-origins=*</code>) — missing either one breaks the
+connection.</li>
+<li>Confirm the Activity Log shows “KanColle live-data watcher
+attached.”</li>
+<li>Some fields (Admiral info) only refresh once per game load — try
+reloading the KanColle page or try click at the repair dock then go back to port (Home screen) once with the manager running.</li>
+<li>If a placeholder shows a literal <code>?</code> instead,
+double-check its spelling — that specific symbol means the name isn’t
+recognized at all, not that the data just hasn’t arrived yet.</li>
+</ul>
+<p><strong>I moved the <code>.exe</code> and now “Start with Windows”
+doesn’t work:</strong></p>
+<ul>
+<li>Untick and re-tick that checkbox once so it re-registers the new
+file location.</li>
+</ul>
+<h2 id="a-note-on-how-this-works-for-the-curious">A note on how this
+works, for the curious</h2>
+<p>This app talks to Discord using the same official local Rich Presence
+connection any game uses — nothing here reads private data, modifies
+Discord itself, or requires special permissions beyond running as a
+normal Windows program. The optional KanColle mode reads network traffic
+the game already sends to your own browser; it doesn’t alter the game or
+interact with the game server on your behalf.</p>
+<hr />
+<p><em>Questions or issues? Contact <span class="citation"
+data-cites="harunoyukie">@harunoyukie</span> on Discord.</em></p> <h1 id="Contact"></h1>
+
+<h1 id="Copyright"></h1>
+<footer>
+  <p>Discord RPC Manager — User Guide</p>
+  <p>
+    &copy; 2026 harunoyukie. This work is licensed under a 
+    <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="license noopener noreferrer">
+      Creative Commons Attribution-NonCommercial 4.0 International License
+    </a>.
+  </p>
+  <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="license noopener noreferrer">
+    <img src="https://mirrors.creativecommons.org/presskit/buttons/88x31/svg/by-nc.svg" alt="CC BY-NC 4.0 License Badge" width="88" height="31" />
+  </a>
+</footer>
+
+</div>
+  <a href="#top" class="back-to-top" title="Back to top">↑ Top</a>
+</body>
+</html>
