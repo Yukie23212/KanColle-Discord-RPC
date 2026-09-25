@@ -278,7 +278,7 @@ Copyright © 2026 harunoyukie.
 
 This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0)**.
 
-See the [LICENSE](LICENSE.txt) file for full details.
+See the [LICENSE](LICENSE) file for full details.
 Third-party components, libraries, and/or assets may be subject to their own licenses.
 See [THIRD PARTY LICENSES](THIRD_PARTY_LICENSES.txt) for the applicable third-party licenses and attributions.
 
