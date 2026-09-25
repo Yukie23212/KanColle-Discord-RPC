@@ -11,30 +11,26 @@ from pypresence import Presence
 from .constants import DEFAULT_CDP_PORT, DEFAULT_INTERVAL
 from .cdp_watcher import CDP_AVAILABLE, KancolleCDPWatcher
 from .utils import choose_variant, safe_format
+from .widget_v2 import push_dynamic_field
 
 
 class RPCMonitor(threading.Thread):
-    """
-    Polls running processes on an interval and matches them against the
-    configured groups. The first time a group's process is seen running
-    (i.e. it just started), a variant is randomly chosen from that group
-    and stays active for as long as the process keeps running. When the
-    process closes, the choice is forgotten so the next launch can re-roll.
 
-    Because each Discord "Application" has its own Client ID, switching
-    from one active variant to another requires closing the old RPC
-    connection and opening a fresh one for the new Client ID.
-    """
-
-    def __init__(self, get_groups, get_interval, log_queue, status_queue):
+    def __init__(self, get_groups, get_interval, log_queue, status_queue, get_idle_stop_minutes=None, get_custom_templates=None, get_stage_template_defaults=None):
         super().__init__(daemon=True)
         self._get_groups = get_groups
         self._get_interval = get_interval
+        self._get_idle_stop_minutes = get_idle_stop_minutes or (lambda: 0)
+        self._get_custom_templates = get_custom_templates or (lambda: {})
+        self._get_stage_template_defaults = get_stage_template_defaults or (lambda: {})
         self._log_queue = log_queue
         self._status_queue = status_queue
         self._stop_event = threading.Event()
         self._rpc = None
         self._connect_time = None
+        self._session_start_time = None
+        self._session_process = None
+        self._last_presence_signature = None
 
         
         
@@ -52,8 +48,22 @@ class RPCMonitor(threading.Thread):
         self._cdp_watcher = None
         self._cdp_watcher_owner = None
 
+        self._widget_v2_state = {}
+        self._widget_v2_warned_no_cdp = set()
+        self._widget_v2_warned_no_creds = set()
+
     def stop(self):
         self._stop_event.set()
+
+    def get_live_snapshot(self):
+        """Return a copy of the current CDP snapshot for GUI preview use."""
+        watcher = self._cdp_watcher
+        if watcher is None:
+            return None
+        try:
+            return watcher.get_snapshot()
+        except Exception:
+            return None
 
     def log(self, msg):
         self._log_queue.put(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
@@ -83,6 +93,59 @@ class RPCMonitor(threading.Thread):
             self._cdp_watcher.start()
             self._cdp_watcher_owner = process_name
 
+    _WIDGET_V2_RETRY_COOLDOWN = 60  # seconds to wait before retrying the SAME failed value
+
+    def _maybe_push_widget_v2(self, process_name, group, snapshot):
+        """Push {admiral_level} to Discord's Widget V2 profile field for
+        this group, but only when the value actually changed since the
+        last successful push (per Haru: level rarely changes, so most
+        scan cycles should do nothing here at all)."""
+        if not group.get("widget_v2_enabled"):
+            return
+        if snapshot is None:
+            if process_name not in self._widget_v2_warned_no_cdp:
+                self._widget_v2_warned_no_cdp.add(process_name)
+                self.log(
+                    "Widget V2 sync is on for a group, but 'Watch live game data' is "
+                    "off -- there's no live value to push, so nothing will happen."
+                )
+            return
+
+        value = snapshot.get("admiral_level")
+        if value in (None, "?"):
+            return  # no real data captured yet -- wait for the next kcsapi call
+
+        template = group.get("widget_v2_value_template") or "{admiral_level}"
+        rendered_value = safe_format(template, snapshot, self._get_custom_templates())
+
+        app_id = group.get("widget_v2_app_id")
+        user_id = group.get("widget_v2_user_id")
+        bot_token = group.get("widget_v2_bot_token")
+        field_name = group.get("widget_v2_field_name") or "HQ_level"
+        if not (app_id and user_id and bot_token):
+            if process_name not in self._widget_v2_warned_no_creds:
+                self._widget_v2_warned_no_creds.add(process_name)
+                self.log(
+                    "Widget V2 sync is on for a group, but App ID/User ID/Bot Token "
+                    "aren't all filled in -- skipping."
+                )
+            return
+
+        state = self._widget_v2_state.get(process_name, {})
+        now = time.time()
+        if state.get("value") == rendered_value:
+            if state.get("ok"):
+                return  # already pushed this exact value successfully
+            if (now - state.get("last_attempt", 0)) < self._WIDGET_V2_RETRY_COOLDOWN:
+                return  # recently failed on this same value -- back off rather than spam
+
+        ok, err = push_dynamic_field(app_id, user_id, bot_token, field_name, rendered_value)
+        self._widget_v2_state[process_name] = {"value": rendered_value, "ok": ok, "last_attempt": now}
+        if ok:
+            self.log(f"Widget V2 updated: {field_name} = {rendered_value}")
+        else:
+            self.log(f"Widget V2 update failed: {err}")
+
     def _disconnect(self):
         if self._rpc is not None:
             try:
@@ -94,15 +157,49 @@ class RPCMonitor(threading.Thread):
         self._active_process = None
         self._active_variant = None
         self._connect_time = None
+        self._last_presence_signature = None
 
-    def _apply_variant(self, process_name, variant, live_snapshot=None, announce=True):
-        """Connect (or reconnect if the client id changed) and push presence.
-        If live_snapshot is given, the variant's state/details are treated
-        as format-string templates (e.g. "HQ Lv.{admiral_level}") filled
-        from that snapshot instead of used as literal text. announce=False
-        suppresses the activity-log line, for silent periodic live-data
-        refreshes of an already-active variant (otherwise the log would
-        get a new line every scan interval just because HP ticked up)."""
+    def _stage_template_value(self, variant, snapshot, field):
+        stage = str((snapshot or {}).get("presence_stage") or "").strip()
+
+        # A variant-specific override takes precedence. Global stage defaults
+        # are managed from the Templates page and are used only when the
+        # variant does not explicitly override the current stage.
+        variant_templates = variant.get("stage_templates", {}) or {}
+        entry = variant_templates.get(stage)
+        if isinstance(entry, dict) and entry.get("enabled"):
+            return safe_format(entry.get(field, ""), snapshot, self._get_custom_templates())
+
+        global_templates = self._get_stage_template_defaults() or {}
+        global_entry = global_templates.get(stage)
+        if isinstance(global_entry, dict) and global_entry.get("enabled"):
+            return safe_format(global_entry.get(field, ""), snapshot, self._get_custom_templates())
+
+        return None
+
+    def render_variant_text(self, variant, live_snapshot=None):
+        """Render the user-facing name/details/state for UI previews and RPC."""
+        if live_snapshot is None:
+            return {
+                "name": variant.get("name", ""),
+                "details": variant.get("details", ""),
+                "state": variant.get("state", ""),
+            }
+
+        name_text = safe_format(variant.get("name"), live_snapshot, self._get_custom_templates())
+        stage_details = self._stage_template_value(variant, live_snapshot, "details")
+        stage_state = self._stage_template_value(variant, live_snapshot, "state")
+        details_override = live_snapshot.get("presence_details_override")
+        if stage_details is not None:
+            details_text = stage_details
+        elif details_override is not None:
+            details_text = str(details_override)
+        else:
+            details_text = safe_format(variant.get("details"), live_snapshot, self._get_custom_templates())
+        state_text = stage_state if stage_state is not None else safe_format(variant.get("state"), live_snapshot, self._get_custom_templates())
+        return {"name": name_text, "details": details_text, "state": state_text}
+
+    def _apply_variant(self, process_name, variant, live_snapshot=None, announce=True, force=False):
         needs_new_connection = (
             self._rpc is None
             or self._active_variant is None
@@ -126,9 +223,10 @@ class RPCMonitor(threading.Thread):
                 self._rpc = None
                 return False
 
-        name_text = safe_format(variant.get("name"), live_snapshot) if live_snapshot is not None else variant.get("name")
-        state_text = safe_format(variant.get("state"), live_snapshot) if live_snapshot is not None else variant.get("state")
-        details_text = safe_format(variant.get("details"), live_snapshot) if live_snapshot is not None else variant.get("details")
+        rendered_text = self.render_variant_text(variant, live_snapshot)
+        name_text = rendered_text["name"]
+        details_text = rendered_text["details"]
+        state_text = rendered_text["state"]
 
         payload = {}
         if name_text:
@@ -151,7 +249,7 @@ class RPCMonitor(threading.Thread):
         if variant.get("small_url"):
             payload["small_url"] = variant["small_url"]
         if variant.get("show_timer", True):
-            payload["start"] = self._connect_time or int(time.time())
+            payload["start"] = self._session_start_time or self._connect_time or int(time.time())
 
         try:
             party_max = int(variant.get("party_max") or 0)
@@ -160,7 +258,7 @@ class RPCMonitor(threading.Thread):
         if party_max > 0:
             if variant.get("party_current_dynamic", False) and live_snapshot is not None:
                 try:
-                    party_current = int(safe_format("{ship_count}", live_snapshot))
+                    party_current = int(safe_format("{ship_count}", live_snapshot, self._get_custom_templates()))
                 except (TypeError, ValueError):
                     party_current = 0
             else:
@@ -181,10 +279,29 @@ class RPCMonitor(threading.Thread):
         if buttons:
             payload["buttons"] = buttons[:2]
 
+        signature = tuple(
+            sorted((key, repr(value)) for key, value in payload.items() if key != "start")
+        )
+        if (
+            not force
+            and self._last_presence_signature == signature
+            and self._active_process == process_name
+            and self._active_variant is not None
+        ):
+            return True
+
         try:
             self._rpc.update(**payload)
+            if (
+                live_snapshot is not None
+                and live_snapshot.get("presence_details_override") is not None
+                and self._cdp_watcher is not None
+                and hasattr(self._cdp_watcher, "acknowledge_details_override")
+            ):
+                self._cdp_watcher.acknowledge_details_override()
             self._active_process = process_name
             self._active_variant = variant
+            self._last_presence_signature = signature
             if announce:
                 self.log(f"Rich Presence active: '{variant.get('app_name')}'.")
             return True
@@ -195,6 +312,8 @@ class RPCMonitor(threading.Thread):
     def run(self):
         self.log("Monitor started.")
         self.set_status("Monitoring - waiting for a match...")
+        self._last_match_time = time.time()
+        stopped_idle = False
         while not self._stop_event.is_set():
             groups = [g for g in self._get_groups() if g.get("enabled") and g.get("process_name")]
             group_by_process = {g["process_name"].strip().lower(): g for g in groups}
@@ -250,6 +369,7 @@ class RPCMonitor(threading.Thread):
             self._ensure_cdp_watcher(match_process, match_group)
 
             if match_process is not None:
+                self._last_match_time = time.time()
                 is_new_activation = (
                     self._active_process != match_process or self._active_variant is not match_variant
                 )
@@ -258,25 +378,56 @@ class RPCMonitor(threading.Thread):
                     if match_group.get("cdp_watch") and self._cdp_watcher is not None
                     else None
                 )
+                if self._session_process != match_process or self._session_start_time is None:
+                    self._session_process = match_process
+                    self._session_start_time = int(time.time())
+
                 if is_new_activation:
-                    self._apply_variant(match_process, match_variant, live_snapshot=snapshot)
+                    self._apply_variant(
+                        match_process,
+                        match_variant,
+                        live_snapshot=snapshot,
+                        force=True,
+                    )
                     self.set_status(f"Active: {match_variant.get('app_name')}")
                 elif snapshot is not None:
                     
                     
                     
                     self._apply_variant(match_process, match_variant, live_snapshot=snapshot, announce=False)
+                self._maybe_push_widget_v2(match_process, match_group, snapshot)
             else:
                 if self._active_process is not None:
                     self.log(f"'{self._active_process}' closed. Clearing activity.")
+                    self._widget_v2_state.pop(self._active_process, None)
+                    self._widget_v2_warned_no_cdp.discard(self._active_process)
+                    self._widget_v2_warned_no_creds.discard(self._active_process)
+                    self._session_process = None
+                    self._session_start_time = None
+                    self._last_presence_signature = None
                     self._disconnect()
                     self.set_status("Monitoring - waiting for a match...")
+
+            try:
+                idle_minutes = float(self._get_idle_stop_minutes() or 0)
+            except (TypeError, ValueError):
+                idle_minutes = 0
+            if idle_minutes > 0 and (time.time() - self._last_match_time) >= idle_minutes * 60:
+                self.log(
+                    f"No monitored process found for {idle_minutes:g} minute(s) -- "
+                    f"stopping automatically. Click Start Monitoring when you're ready again."
+                )
+                stopped_idle = True
+                break
 
             interval = max(2, int(self._get_interval() or DEFAULT_INTERVAL))
             self._stop_event.wait(interval)
 
+        self._session_process = None
+        self._session_start_time = None
+        self._last_presence_signature = None
         self._disconnect()
         self._ensure_cdp_watcher(None, None)
         self.log("Monitor stopped.")
-        self.set_status("Stopped")
+        self.set_status("Stopped (idle timeout)" if stopped_idle else "Stopped")
 

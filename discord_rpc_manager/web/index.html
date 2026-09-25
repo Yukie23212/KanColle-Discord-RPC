@@ -1,0 +1,336 @@
+<!-- Copyright (c) 2026 harunoyukie -->
+<!-- Licensed under CC BY-NC 4.0 (https://creativecommons.org/licenses/by-nc/4.0/) -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0d14">
+  <title>KanColle RPC Control Panel</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <link href="https://i.ibb.co/HpDx2jmv/kancolle.png" rel="icon" type="image/png">
+</head>
+<body>
+  <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">RPC</div>
+        <div><strong>KanColle</strong><span>RPC</span></div>
+      </div>
+      <nav class="nav">
+        <button class="nav-item active" data-page="dashboard"><span class="nav-icon">⌂</span><span>Dashboard</span></button>
+        <button class="nav-item" data-page="groups"><span class="nav-icon">▦</span><span>Groups</span></button>
+        <button class="nav-item" data-page="templates"><span class="nav-icon">✦</span><span>Templates</span></button>
+        <button class="nav-item" data-page="settings"><span class="nav-icon">⚙</span><span>Settings</span></button>
+        <button class="nav-item" data-page="activity"><span class="nav-icon">≡</span><span>Activity Log</span></button>
+        <button class="nav-item" data-page="help"><span class="nav-icon">?</span><span>Help</span></button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="connection-dot" id="connectionDot"></div>
+        <span id="connectionText">Connecting...</span>
+      </div>
+      <div class="sidebar-footer"><span>Ctrl</span><span>+</span><span>K</span><small>Quick navigation</small></div>
+      <button class="ghost wide" id="quitBtn"><span>Quit Application</span></button>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div class="eyebrow" id="pageEyebrow">OVERVIEW</div>
+          <h1 id="pageTitle">Dashboard</h1>
+        </div>
+        <div class="top-actions">
+          <div class="updated-label">Updated <span id="lastUpdated">--:--:--</span></div>
+          <button class="ghost" id="refreshBtn">↻ Refresh</button>
+          <button class="secondary" id="openConfigBtn">Open Config</button>
+          <button class="secondary" id="saveBtn">Save</button>
+          <button class="primary" id="applyBtn">Apply Changes</button>
+        </div>
+      </header>
+
+      <section class="page active" id="page-dashboard">
+        <div class="hero-grid">
+          <div class="hero-card">
+            <div class="hero-copy">
+              <div class="eyebrow">MONITOR CONTROL</div>
+              <div class="hero-status-row"><span id="monitorPulse" class="live-pulse status-idle"></span><span id="monitorBadge" class="status-badge status-idle">IDLE</span></div>
+              <h2 id="monitorStatus">Idle</h2>
+              <p id="monitorDetail">Monitoring is not running.</p>
+            </div>
+            <button class="primary big" id="monitorToggle">Start Monitoring</button>
+          </div>
+          <div class="stat-card"><span>Groups</span><strong id="groupCount">0</strong><small>configured</small></div>
+          <div class="stat-card"><span>Enabled Groups</span><strong id="enabledGroupCount">0</strong><small>ready to monitor</small></div>
+          <div class="stat-card"><span>Templates</span><strong id="templateCount">0</strong><small>reusable sentences</small></div>
+          <div class="stat-card"><span>Variants</span><strong id="variantCount">0</strong><small>enabled profiles</small></div>
+        </div>
+
+        <div class="quick-row">
+          <button class="quick-card" id="quickTemplates"><span class="quick-icon">✦</span><span><strong>Template Studio</strong><small>Build reusable text</small></span><b>→</b></button>
+          <button class="quick-card" id="quickGroups"><span class="quick-icon">▦</span><span><strong>Manage Groups</strong><small>Processes & variants</small></span><b>→</b></button>
+          <button class="quick-card" id="quickSettings"><span class="quick-icon">⚙</span><span><strong>Preferences</strong><small>Runtime behavior</small></span><b>→</b></button>
+        </div>
+
+        <div class="content-grid">
+          <section class="card presence-card-shell">
+            <div class="card-head"><div><h3>Active Presence</h3><p>What KanColle RPC is currently publishing.</p></div><span class="section-badge">LIVE DATA</span></div>
+            <div class="presence-card-content" id="presenceCard"></div>
+          </section>
+          <section class="card">
+            <div class="card-head"><div><h3>Live Snapshot</h3><p>Current CDP data, when available.</p></div><div class="snapshot-actions"><span id="snapshotState" class="mini-state">Waiting</span><button class="ghost snapshot-copy" id="copySnapshotBtn" type="button">Copy</button></div></div>
+            <pre class="snapshot" id="snapshotPreview">No live snapshot.</pre>
+          </section>
+        </div>
+      </section>
+
+      <section class="page" id="page-groups">
+        <div class="section-head"><div><p>Edit process matching and Rich Presence profiles.</p></div><button class="primary" id="addGroupBtn">＋ Add Group</button></div>
+        <div id="groupsList" class="stack"></div>
+      </section>
+
+      <section class="page" id="page-templates">
+        <div class="section-head"><div><p>Build reusable sentences from your live placeholders.</p></div><button type="button" class="primary" id="addTemplateBtn">＋ Add Template</button></div>
+        <div class="templates-layout">
+          <section class="card template-list-card"><div id="templateList" class="template-list"></div></section>
+          <section class="card template-editor-card">
+            <div class="editor-topline"><span class="editor-kicker">TEMPLATE EDITOR</span><span class="kbd">Live Preview</span></div>
+            <div class="field"><label for="templateName">Name</label><input id="templateName" placeholder="e.g. fleet_info" autocomplete="off"></div>
+            <div class="field"><div class="field-label-row"><label for="templateBody">Template</label><span>Click a placeholder to insert it</span></div><textarea id="templateBody" rows="8" placeholder="Fleet: {fleet_name} — {fleet_status}"></textarea></div>
+            <div class="placeholder-area"><div class="field-label-row"><span>Available placeholders</span><span>Built-in + custom</span></div><div id="placeholderHints" class="placeholder-hints"></div></div>
+            <div class="preview-head"><div><h3>Rendered Preview</h3><span id="previewSource">Example preview</span></div></div>
+            <div class="discord-preview"><div class="discord-avatar">RPC</div><div><div class="discord-label">RICH PRESENCE</div><div class="rendered" id="templatePreview">Select or create a template.</div></div></div>
+            <div class="editor-actions"><button type="button" class="secondary danger-button" id="deleteTemplateBtn">Delete</button><button type="button" class="primary" id="saveTemplateBtn">Save Template</button></div>
+          </section>
+        </div>
+        <section class="card stage-defaults-card">
+          <div class="card-head"><div><div class="eyebrow">DYNAMIC STAGE TEMPLATES</div><h3>Global Stage Defaults</h3><p>Define reusable Details/State rules for each live game stage. These apply to every CDP variant unless that variant has its own stage override in Variant Configuration. A stage returns to the normal/global template automatically when the watcher detects the next stage; no {clear_status} placeholder is required.</p></div><span class="section-badge">GLOBAL</span></div>
+          <div class="stage-template-editor" id="globalStageTemplateEditor"></div>
+          <div class="editor-actions"><button type="button" class="primary" id="saveGlobalStageTemplatesBtn">Save Stage Defaults</button></div>
+        </section>
+
+        <section class="card placeholder-reference-card">
+          <div class="card-head"><div><div class="eyebrow">REFERENCE</div><h3>Built-in CDP Placeholders</h3><p>These placeholders are supplied by the live KanColle CDP watcher. They are different from your custom templates and can be used directly in Details, State, Widget V2, or inside a custom template.</p></div><span class="section-badge">BUILT-IN</span></div>
+          <div id="builtinPlaceholderReference" class="placeholder-reference"></div>
+          <div class="reference-note"><strong>Not shown here:</strong> internal watcher fields such as <code>presence_details_override</code> are implementation details, not user-facing placeholders. <code>fleet_total_slots</code> is an internal derived value used by the watcher. <code>expedition_result</code> is now a user-facing built-in placeholder available during the Expedition Result stage; <code>fleet1_summary</code> is the available ready-made Fleet #1 summary.</div>
+        </section>
+      </section>
+
+      <section class="page" id="page-settings">
+        <div class="section-head"><div><p>Runtime and launch preferences.</p></div></div>
+        <div class="settings-grid">
+          <section class="card">
+            <div class="setting-row"><div><strong>Scan interval</strong><p>How often the monitor checks processes.</p></div><input class="small-input" id="intervalInput" type="number" min="2" max="300"></div>
+            <div class="setting-row"><div><strong>Idle auto-stop</strong><p>0 disables automatic stopping.</p></div><input class="small-input" id="idleInput" type="number" min="0" max="1440"></div>
+            <div class="setting-row"><div><strong>Auto-start monitoring</strong><p>Start monitoring when the application launches.</p></div><input id="autoStartInput" type="checkbox"></div>
+            <div class="setting-row"><div><strong>Start with Windows</strong><p>Launch the local Web UI automatically when you sign in.</p></div><input id="startWindowsInput" type="checkbox"></div>
+            <div class="setting-row"><div><strong>Minimize to tray on launch</strong><p>Keep the Python backend in the system tray. The browser UI remains the visible interface.</p></div><input id="minTrayInput" type="checkbox"></div>
+            <div class="setting-row theme-setting-row"><div><strong>Light theme</strong><p>Use a brighter, higher-contrast interface instead of the default dark theme.</p></div><input id="lightThemeInput" type="checkbox"></div>
+            <div class="web-mode-note"><strong>Theme:</strong><span>Your light/dark choice is stored in this browser and does not change the RPC backend.</span></div>
+            <div class="web-mode-note"><strong>Web UI mode:</strong><span>These launch settings control the Python backend and Windows startup. They do not hide or minimize the browser window.</span></div>
+            <div class="setting-footer">Config file <span id="configPath">Default config</span></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="page" id="page-activity">
+        <div class="section-head"><div><p>Live backend messages.</p></div><div class="log-actions"><button class="ghost" id="copyLogBtn" type="button">Copy Log</button><button class="ghost" id="clearLogBtn" type="button">Clear View</button></div></div>
+        <section class="card log-card"><pre id="activityLog"></pre></section>
+      </section>
+
+      <section class="page" id="page-help">
+        <div class="section-head"><div><p>Quick answers for Discord, KanColle live data, and startup issues.</p></div></div>
+        <div class="help-grid">
+          <article class="card help-card">
+            <div class="help-kicker">DISCORD CONNECTION</div>
+            <h2>Nothing shows up on Discord at all</h2>
+            <ul>
+              <li>Make sure the Discord desktop app is open.</li>
+              <li>Confirm the Group is enabled and its Process Name exactly matches Task Manager.</li>
+              <li>Check that the active Variant has a real Client ID, not a blank value or <code>YOUR_DISCORD...</code>.</li>
+              <li>Check the Activity Log for a connection error.</li>
+            </ul>
+          </article>
+
+          <article class="card help-card">
+            <div class="help-kicker">VARIANTS</div>
+            <h2>Two Variants look identical on Discord</h2>
+            <p>If both Variants use the same Client ID and neither has a Discord Name, Discord will show the same title. Details and State can still differ.</p>
+            <p>Set a distinct Discord Name for each Variant, or use separate Discord Applications for completely different-looking activities.</p>
+          </article>
+
+          <article class="card help-card">
+            <div class="help-kicker">CLIENT IDS</div>
+            <h2>Can I reuse one Client ID?</h2>
+            <p>A Discord Application can hold only one active Rich Presence connection at a time. Reusing a Client ID across Variants is fine when they are not active simultaneously; this app normally displays only one activity at a time.</p>
+            <p>Problems occur when two separate app instances, configs, or Rich Presence tools connect with that same Client ID at once. Use a separate Discord Application for anything that may run concurrently. Creating one takes under a minute; see Quick Start, step 2.</p>
+          </article>
+
+          <article class="card help-card">
+            <div class="help-kicker">KANCOLLE LIVE DATA</div>
+            <h2>Placeholders show a dash, blank, or stop updating</h2>
+            <ul>
+              <li>Launch Damecon with both <code>--remote-debugging-port=9222</code> and <code>--remote-allow-origins=*</code>. Missing either flag breaks the connection.</li>
+              <li>Check the Activity Log for “KanColle live-data watcher attached.”</li>
+              <li>Some Admiral fields refresh only after a game load. Reload the KanColle page, or visit the Repair Dock and return to the Port/Home screen once while the manager is running.</li>
+              <li>A literal <code>?</code> means the name is not recognized; it is different from data that has not arrived yet.</li>
+            </ul>
+          </article>
+
+          <article class="card help-card">
+            <div class="help-kicker">WINDOWS STARTUP</div>
+            <h2>Start with Windows stopped working after moving the EXE</h2>
+            <p>Untick and re-tick Start with Windows once. This registers the new file location.</p>
+          </article>
+
+          <article class="card help-card">
+            <div class="help-kicker">EDITING FIELDS</div>
+            <h2>Quickly remove all text from a field</h2>
+            <p>Click inside the field then press <code>Delete</code> to clear it.</p>
+          </article>
+        </div>
+        <section class="card help-license">
+          <div class="help-kicker">LICENSE</div>
+          <p>Copyright (c) 2026 harunoyukie</p>
+          <p>Licensed under <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noreferrer">CC BY-NC 4.0</a>.</p>
+          <p>Questions or issues? Contact @harunoyukie on Discord.</p>
+          <p>KanColle RPC Manager Version 2.0</p>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div id="groupModal" class="modal-overlay">
+    <section class="modal-card group-modal-card" role="dialog" aria-modal="true" aria-labelledby="groupModalTitle">
+      <div class="modal-head">
+        <div><div class="eyebrow">GROUP CONFIGURATION</div><h2 id="groupModalTitle">Edit Group</h2><p id="groupModalSubtitle">Edit the process, CDP, and Widget V2 settings for this group.</p></div>
+        <button class="ghost modal-close" id="groupModalClose" type="button">×</button>
+      </div>
+      <div class="modal-body">
+        <section class="modal-section">
+          <div class="modal-section-title">Process</div>
+          <div class="modal-grid two">
+            <div class="field"><label for="groupProcessName">Process Name</label><input id="groupProcessName" placeholder="e.g. damecon-browser.exe" autocomplete="off"><small>Must match the process name in Task Manager exactly.</small></div>
+            <div class="toggle-card"><label class="switch-row"><input id="groupEnabled" type="checkbox"><span class="switch"></span><span><strong>Enabled</strong><small>Allow this group to participate in monitoring.</small></span></label></div>
+          </div>
+        </section>
+
+        <section class="modal-section">
+          <div class="modal-section-title">Live data · Chrome DevTools</div>
+          <label class="switch-row"><input id="groupCdpWatch" type="checkbox"><span class="switch"></span><span><strong>Watch live game data</strong><small>Use live Admiral/fleet/ship data from the CDP watcher.</small></span></label>
+          <div class="modal-grid two compact-grid">
+            <div class="field"><label for="groupCdpPort">CDP Port</label><input id="groupCdpPort" type="number" min="1" max="65535" value="9222"><small>Browser must use the matching remote debugging port.</small></div>
+            <div class="info-box"><strong>Live placeholders</strong><span>{admiral_nickname} · {admiral_level} · {admiral_rank} · {fleet_name} · {fleet_status} · {fleet_ship_count} · {ship_count}</span></div>
+          </div>
+        </section>
+
+        <section class="modal-section">
+          <div class="modal-section-title">Discord Widget V2</div>
+          <label class="switch-row"><input id="groupWidgetEnabled" type="checkbox"><span class="switch"></span><span><strong>Enable Widget V2 sync</strong><small>Push a rendered value to a Discord application profile field.</small></span></label>
+          <div class="modal-grid two">
+            <div class="field"><label for="groupWidgetAppId">App ID</label><input id="groupWidgetAppId" autocomplete="off"></div>
+            <div class="field"><label for="groupWidgetUserId">User ID</label><input id="groupWidgetUserId" autocomplete="off"></div>
+            <div class="field"><label for="groupWidgetToken">Bot Token</label><input id="groupWidgetToken" type="password" autocomplete="new-password"><small>Leave blank when editing to keep the saved token.</small></div>
+            <div class="field"><label for="groupWidgetFieldName">Field Name</label><input id="groupWidgetFieldName" placeholder="" autocomplete="off"></div>
+          </div>
+          <div class="field"><label for="groupWidgetValueTemplate">Value Template</label><input id="groupWidgetValueTemplate" placeholder="" autocomplete="off"><small>Uses the same built-in and custom placeholders as Details/State.</small></div>
+        </section>
+      </div>
+      <div class="modal-footer"><button class="secondary" id="groupModalCancel" type="button">Cancel</button><button class="primary" id="groupModalSave" type="button">Save Group</button></div>
+    </section>
+  </div>
+
+  <div id="variantModal" class="modal-overlay">
+    <section class="modal-card variant-modal-card" role="dialog" aria-modal="true" aria-labelledby="variantModalTitle">
+      <div class="modal-head">
+        <div><div class="eyebrow">VARIANT CONFIGURATION</div><h2 id="variantModalTitle">Edit Variant</h2><p id="variantModalSubtitle">Edit every part of this Rich Presence profile.</p></div>
+        <button class="ghost modal-close" id="variantModalClose" type="button">×</button>
+      </div>
+      <div class="modal-body">
+        <section class="modal-section">
+          <div class="modal-section-title">Identity</div>
+          <div class="modal-grid two">
+            <div class="field"><label for="variantAppName">Display Name</label><input id="variantAppName" placeholder="Kancolle Preset 4" autocomplete="off"><small>Internal label shown in this manager.</small></div>
+            <div class="toggle-card"><label class="switch-row"><input id="variantEnabled" type="checkbox"><span class="switch"></span><span><strong>Enabled</strong><small>Allow this variant to be selected by the monitor.</small></span></label></div>
+            <div class="field"><label for="variantName">Discord Name</label><input id="variantName" placeholder="KanColle — {admiral_nickname} (Lv.{admiral_level})" autocomplete="off"><small>Activity title sent to Discord.</small></div>
+            <div class="field"><label for="variantClientId">Discord Client ID</label><input id="variantClientId" placeholder="151971843050740xxxx" autocomplete="off"><small>Discord Application Client ID.</small></div>
+          </div>
+        </section>
+
+        <section class="modal-section">
+          <div class="modal-section-title">Text</div>
+          <div class="field"><label for="variantDetails">Details</label><textarea id="variantDetails" rows="3" placeholder="{fleet_status} {map_node_text} — Fleet: {fleet_name}"></textarea><small>Supports built-in CDP placeholders and your custom templates.</small></div>
+          <div class="field"><label for="variantState">State</label><textarea id="variantState" rows="3" placeholder="{ship_count} Ships held | Resource: {fuel} | {ammo}"></textarea></div>
+        </section>
+
+        <section class="modal-section">
+          <div class="modal-section-title">Dynamic Stage Templates</div>
+          <p class="section-help">Choose which game stages get their own per-variant Details/State template. Global defaults are managed from the Templates page; a variant override here takes precedence. When a stage is set to <strong>Use normal template</strong>, the global stage default is used when enabled, otherwise the variant's normal Details/State fields are used. When overridden, you can use any built-in or custom placeholder. Blank overridden fields are intentionally allowed, so you can hide Details or State for that stage.</p>
+          <div id="stageTemplateEditor" class="stage-template-editor"></div>
+        </section>
+
+        <section class="modal-section">
+          <div class="modal-section-title">Images</div>
+          <div class="modal-grid two">
+            <div class="field"><label for="variantLargeImage">Large Image</label><input id="variantLargeImage" placeholder="Asset key or https:// image URL"></div>
+            <div class="field"><label for="variantLargeText">Large Image Text</label><input id="variantLargeText" placeholder="Tooltip text"></div>
+            <div class="field"><label for="variantLargeUrl">Large Image URL</label><input id="variantLargeUrl" placeholder="https://..."><small>Optional link used by Discord on image click where supported.</small></div>
+            <div class="field"><label for="variantSmallImage">Small Image</label><input id="variantSmallImage" placeholder="Asset key or https:// image URL"></div>
+            <div class="field"><label for="variantSmallText">Small Image Text</label><input id="variantSmallText" placeholder="Optional tooltip"></div>
+            <div class="field"><label for="variantSmallUrl">Small Image URL</label><input id="variantSmallUrl" placeholder="https://..."></div>
+          </div>
+        </section>
+
+        <section class="modal-section">
+          <div class="modal-section-title">Party & Behavior</div>
+          <div class="modal-grid two">
+            <div class="field"><label for="variantPartyCurrent">Party Current</label><input id="variantPartyCurrent" placeholder="0 or {ship_count}"><small>Can be a literal number or a placeholder when dynamic mode is used.</small></div>
+            <div class="field"><label for="variantPartyMax">Party Max</label><input id="variantPartyMax" type="number" min="0" placeholder="0"><small>0 hides the party count.</small></div>
+            <div class="field"><label for="variantWeight">Random Weight</label><input id="variantWeight" type="number" min="1" step="1" placeholder="1"><small>Higher values are selected more often when variants are randomized.</small></div>
+            <div class="toggle-card"><label class="switch-row"><input id="variantPartyDynamic" type="checkbox"><span class="switch"></span><span><strong>Dynamic party count</strong><small>Use the live ship count for Party Current.</small></span></label></div>
+            <div class="toggle-card"><label class="switch-row"><input id="variantShowTimer" type="checkbox"><span class="switch"></span><span><strong>Show activity timer</strong><small>Send a start time to Discord.</small></span></label></div>
+          </div>
+        </section>
+
+        <section class="modal-section">
+          <div class="modal-section-title">Buttons</div>
+          <div class="modal-grid two">
+            <div class="field"><label for="variantButton1Label">Button 1 Label</label><input id="variantButton1Label" placeholder="Visit Website"></div>
+            <div class="field"><label for="variantButton1Url">Button 1 URL</label><input id="variantButton1Url" placeholder="https://..."></div>
+            <div class="field"><label for="variantButton2Label">Button 2 Label</label><input id="variantButton2Label" placeholder="Optional second button"></div>
+            <div class="field"><label for="variantButton2Url">Button 2 URL</label><input id="variantButton2Url" placeholder="https://..."></div>
+          </div>
+        </section>
+      </div>
+      <div class="modal-footer"><button class="secondary" id="variantModalCancel" type="button">Cancel</button><button class="primary" id="variantModalSave" type="button">Save Variant</button></div>
+    </section>
+  </div>
+
+  <div id="commandPalette" class="command-overlay">
+    <div class="command-modal">
+      <div class="command-top"><span>Quick Navigation</span><button class="ghost" onclick="document.getElementById('commandPalette').classList.remove('open')">Esc</button></div>
+      <input id="commandInput" class="command-input" placeholder="Search pages…" autocomplete="off">
+      <div class="command-list">
+        <button class="command-item" data-page="dashboard">⌂ <span>Dashboard</span></button>
+        <button class="command-item" data-page="groups">▦ <span>Groups & Variants</span></button>
+        <button class="command-item" data-page="templates">✦ <span>Custom Templates</span></button>
+        <button class="command-item" data-page="settings">⚙ <span>Settings</span></button>
+        <button class="command-item" data-page="activity">≡ <span>Activity Log</span></button>
+        <button class="command-item" data-page="help">? <span>Help</span></button>
+      </div>
+    </div>
+  </div>
+  <div id="quitModal" class="modal-overlay">
+    <section class="modal-card quit-modal-card" role="dialog" aria-modal="true" aria-labelledby="quitModalTitle">
+      <div class="modal-head">
+        <div><div class="eyebrow">APPLICATION</div><h2 id="quitModalTitle">Quit Discord RPC Manager?</h2><p>The backend and web interface will close.</p></div>
+        <button class="ghost modal-close" id="quitModalClose" type="button">×</button>
+      </div>
+      <div class="modal-footer"><button class="secondary" id="quitModalCancel" type="button">Cancel</button><button class="primary danger" id="quitModalConfirm" type="button">Quit Application</button></div>
+    </section>
+  </div>
+  <div id="toast" class="toast"></div>
+  <div id="closedScreen" class="closed-screen hidden"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

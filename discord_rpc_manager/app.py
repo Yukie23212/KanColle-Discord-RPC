@@ -13,10 +13,10 @@ from tkinter import ttk, messagebox, filedialog
 from .constants import APP_TITLE, DEFAULT_INTERVAL, DEFAULT_CONFIG
 from .config import (
     CONFIG_PATH, load_config, save_config, _normalize_group, _normalize_variant,
-    set_start_with_windows, get_base_dir,
+    set_start_with_windows, get_data_dir,
 )
 from .cdp_watcher import CDP_AVAILABLE
-from .dialogs import GroupDialog, VariantDialog
+from .dialogs import GroupDialog, VariantDialog, CustomTemplatesDialog
 from .monitor import RPCMonitor
 
 
@@ -51,6 +51,9 @@ class App(tk.Tk):
         self.log_window = None
         self.log_text = None
         self.show_log_window = tk.BooleanVar(value=False)
+        self.web_command_queue = queue.Queue()
+        self.web_log_buffer = []
+        self._web_status_text = "Idle"
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
 
@@ -60,7 +63,6 @@ class App(tk.Tk):
         self.geometry(f"{window_width}x{window_height}")
         self.minsize(760, 460)
 
-        self.config_data = load_config()
         self.log_queue = queue.Queue()
         self.status_queue = queue.Queue()
         self.monitor = None
@@ -130,9 +132,23 @@ class App(tk.Tk):
         self._load_config_into_ui()
         self._append_log("Started a new blank config. Use Save As... to choose where to store it.")
 
+    def _notify_config_dialog_open(self):
+        """Play a short Windows system sound when the native file dialog opens."""
+        if os.name != "nt":
+            return
+        try:
+            import winsound
+            winsound.PlaySound(
+                "SystemExclamation",
+                winsound.SND_ALIAS | winsound.SND_ASYNC,
+            )
+        except Exception:
+            pass
+
     def _open_config(self):
         if not self._confirm_discard_if_monitoring():
             return
+        self._notify_config_dialog_open()
         path = filedialog.askopenfilename(
             title="Open Config", filetypes=[("JSON config", "*.json"), ("All files", "*.*")]
         )
@@ -165,6 +181,7 @@ class App(tk.Tk):
         """Refreshes every widget that mirrors self.config_data -- called
         after loading a different config file or starting a new blank one."""
         self.interval_var.set(str(self.config_data.get("check_interval_seconds", DEFAULT_INTERVAL)))
+        self.idle_stop_var.set(str(self.config_data.get("idle_auto_stop_minutes", 0)))
         self.auto_monitor_var.set(self.config_data.get("auto_start_monitoring", False))
         self.minimize_launch_var.set(self.config_data.get("start_minimized_to_tray", False))
         self.start_with_windows_var.set(self.config_data.get("start_with_windows", False))
@@ -205,8 +222,20 @@ class App(tk.Tk):
         interval_spin.pack(side="left", padx=(4, 20))
         interval_spin.bind("<FocusOut>", lambda e: self._save_interval())
 
+        ttk.Label(top, text="Auto-stop after idle (min, 0=never):").pack(side="left")
+        self.idle_stop_var = tk.StringVar(value=str(self.config_data.get("idle_auto_stop_minutes", 0)))
+        idle_spin = ttk.Spinbox(
+            top, from_=0, to=1440, width=5, textvariable=self.idle_stop_var,
+            command=self._save_idle_stop,
+        )
+        idle_spin.pack(side="left", padx=(4, 20))
+        idle_spin.bind("<FocusOut>", lambda e: self._save_idle_stop())
+
         self.start_stop_btn = ttk.Button(top, text="Start Monitoring", command=self._toggle_monitor)
         self.start_stop_btn.pack(side="left")
+
+        self.apply_changes_btn = ttk.Button(top, text="Apply Changes", command=self._apply_changes)
+        self.apply_changes_btn.pack(side="left", padx=(6, 0))
 
         self.status_label = ttk.Label(top, text="Status: Idle", foreground="#555555")
         self.status_label.pack(side="left", padx=16)
@@ -285,7 +314,9 @@ class App(tk.Tk):
         ttk.Button(btn_col, text="Toggle Variant On/Off", command=self._toggle_variant_enabled).pack(fill="x", pady=2)
         ttk.Button(btn_col, text="Delete Variant", command=self._delete_variant).pack(fill="x", pady=2)
         ttk.Separator(btn_col, orient="horizontal").pack(fill="x", pady=8)
-        ttk.Button(btn_col, text="Open config.json folder", command=self._open_config_folder).pack(fill="x", pady=2)
+        ttk.Button(btn_col, text="Custom Templates...", command=self._open_custom_templates).pack(fill="x", pady=2)
+        ttk.Separator(btn_col, orient="horizontal").pack(fill="x", pady=8)
+        ttk.Button(btn_col, text="Open config folder", command=self._open_config_folder).pack(fill="x", pady=2)
         if TRAY_AVAILABLE:
             ttk.Button(btn_col, text="Minimize to Tray", command=self._minimize_to_tray).pack(fill="x", pady=2)
 
@@ -410,6 +441,12 @@ class App(tk.Tk):
             group["enabled"] = dlg.result["enabled"]
             group["cdp_watch"] = dlg.result["cdp_watch"]
             group["cdp_port"] = dlg.result["cdp_port"]
+            group["widget_v2_enabled"] = dlg.result["widget_v2_enabled"]
+            group["widget_v2_app_id"] = dlg.result["widget_v2_app_id"]
+            group["widget_v2_user_id"] = dlg.result["widget_v2_user_id"]
+            group["widget_v2_bot_token"] = dlg.result["widget_v2_bot_token"]
+            group["widget_v2_field_name"] = dlg.result["widget_v2_field_name"]
+            group["widget_v2_value_template"] = dlg.result["widget_v2_value_template"]
             self._save_config()
             self._refresh_group_tree()
 
@@ -521,8 +558,27 @@ class App(tk.Tk):
             self._save_config()
             self._refresh_group_tree()
 
+    def _open_custom_templates(self):
+        templates = self.config_data.get("custom_templates", {})
+        if not isinstance(templates, dict):
+            templates = {}
+
+        dlg = CustomTemplatesDialog(self, templates=templates)
+        self.wait_window(dlg)
+        if dlg.result is None:
+            return
+
+        self.config_data["custom_templates"] = dlg.result
+        try:
+            self._save_config()
+        except Exception as e:
+            messagebox.showerror(APP_TITLE, f"Could not save custom templates: {e}")
+            return
+        self._append_log("Saved custom templates.")
+
+
     def _open_config_folder(self):
-        folder = get_base_dir()
+        folder = get_data_dir()
         try:
             if sys.platform == "win32":
                 os.startfile(folder)
@@ -580,6 +636,21 @@ class App(tk.Tk):
         self.config_data["check_interval_seconds"] = val
         self._save_config()
 
+    def _save_idle_stop(self):
+        try:
+            val = max(0, int(self.idle_stop_var.get()))
+        except ValueError:
+            val = 0
+        self.idle_stop_var.set(str(val))
+        self.config_data["idle_auto_stop_minutes"] = val
+        self._save_config()
+
+    def _get_idle_stop_minutes(self):
+        try:
+            return int(self.idle_stop_var.get())
+        except ValueError:
+            return 0
+
     def _save_auto_monitor(self):
         self.config_data["auto_start_monitoring"] = self.auto_monitor_var.get()
         self._save_config()
@@ -613,6 +684,14 @@ class App(tk.Tk):
         except ValueError:
             return DEFAULT_INTERVAL
 
+    def _get_custom_templates(self):
+        templates = self.config_data.get("custom_templates", {})
+        return templates if isinstance(templates, dict) else {}
+
+    def _get_stage_template_defaults(self):
+        templates = self.config_data.get("stage_template_defaults", {})
+        return templates if isinstance(templates, dict) else {}
+
     def _toggle_monitor(self):
         if self.monitor and self.monitor.is_alive():
             self._append_log("Stopping monitor...")
@@ -628,24 +707,89 @@ class App(tk.Tk):
                 )
                 return
             self.monitor = RPCMonitor(
-                self._get_groups, self._get_interval, self.log_queue, self.status_queue
+                self._get_groups, self._get_interval, self.log_queue, self.status_queue,
+                self._get_idle_stop_minutes, self._get_custom_templates,
+                self._get_stage_template_defaults,
             )
             self.monitor.start()
             self.start_stop_btn.config(text="Stop Monitoring")
 
+    def _apply_changes(self):
+        try:
+            self._save_config()
+        except Exception as e:
+            messagebox.showerror(APP_TITLE, f"Could not save config: {e}")
+            return
+
+        self._append_log(f"Saved to {self.active_config_path}")
+
+        if not (self.monitor and self.monitor.is_alive()):
+            self._append_log("Changes saved. Monitoring is not running, so no restart was needed.")
+            return
+
+        self._append_log("Applying changes: restarting monitor...")
+        self.monitor.stop()
+        self.monitor.join(timeout=2)
+
+        if self.monitor.is_alive():
+            self._append_log(
+                "Could not stop the current monitor within 2 seconds. "
+                "Changes were saved but were not applied yet."
+            )
+            return
+
+        self.monitor = None
+        self.start_stop_btn.config(text="Start Monitoring")
+        self.status_label.config(text="Status: Idle")
+
+        if not any(g.get("enabled") for g in self.config_data["groups"]):
+            self._append_log(
+                "Changes saved. No groups are enabled, so monitoring remains stopped."
+            )
+            return
+
+        self.monitor = RPCMonitor(
+            self._get_groups, self._get_interval, self.log_queue, self.status_queue,
+            self._get_idle_stop_minutes, self._get_custom_templates,
+            self._get_stage_template_defaults,
+        )
+        self.monitor.start()
+        self.start_stop_btn.config(text="Stop Monitoring")
+        self._append_log("Changes applied; monitor restarted with the new settings.")
+
+
     def _poll_queues(self):
+        for _ in range(50):
+            try:
+                command, done, box = self.web_command_queue.get_nowait()
+            except queue.Empty:
+                break
+            try:
+                box["result"] = command()
+            except Exception as e:
+                box["error"] = e
+            finally:
+                done.set()
+
         try:
             while True:
                 msg = self.log_queue.get_nowait()
+                self.web_log_buffer.append(msg)
+                if len(self.web_log_buffer) > 500:
+                    del self.web_log_buffer[:-500]
                 self._append_log(msg)
         except queue.Empty:
             pass
         try:
             while True:
                 status = self.status_queue.get_nowait()
+                self._web_status_text = status
                 self.status_label.config(text=f"Status: {status}")
         except queue.Empty:
             pass
+        if self.monitor is not None and not self.monitor.is_alive():
+            self.monitor = None
+            self.start_stop_btn.config(text="Start Monitoring")
         self.after(300, self._poll_queues)
 
     def _append_log(self, msg):
@@ -707,6 +851,9 @@ class App(tk.Tk):
                 self.tray_icon.stop()
             except Exception:
                 pass
+        close_event = getattr(self, "webview_close_event", None)
+        if close_event is not None:
+            close_event.set()
         self.destroy()
         sys.exit(0)
 

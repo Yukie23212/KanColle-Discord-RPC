@@ -1,0 +1,124 @@
+# Third-Party Licenses and Attributions
+
+This application incorporates third-party software components and data under their respective licenses or stated terms.
+
+---
+
+### 1. pypresence
+
+* **Usage:** Communication with Discord through Discord Rich Presence IPC.
+* **License:** MIT License
+* **Repository:** https://github.com/qwertyquerty/pypresence
+
+---
+
+### 2. psutil
+
+* **Usage:** Scanning running processes to detect and monitor configured applications.
+* **License:** BSD 3-Clause License
+* **Repository:** https://github.com/giampaolo/psutil
+
+---
+
+### 3. Pillow
+
+* **Usage:** Creating and drawing the application system-tray icon image.
+* **License:** MIT-CMU License
+* **Repository:** https://github.com/python-pillow/Pillow
+
+---
+
+### 4. pystray
+
+* **Usage:** Creating and managing the Windows system-tray icon and context menu.
+* **License:** GNU Lesser General Public License v3.0 (LGPL-3.0)
+* **Repository:** https://github.com/moses-palmer/pystray
+
+---
+
+### 5. websocket-client
+
+* **Usage:** WebSocket communication with the Chrome DevTools Protocol (CDP) endpoint to capture live KanColle browser data.
+* **License:** Apache License 2.0
+* **Repository:** https://github.com/websocket-client/websocket-client
+
+---
+
+### 6. pywebview
+
+* **Usage:** Providing the native desktop window for the application's HTML/CSS/JavaScript user interface.
+* **License:** BSD 3-Clause License
+* **Repository:** https://github.com/r0x0r/pywebview
+
+---
+
+### 7. pythonnet
+
+* **Usage:** Windows .NET/WinForms interoperability used by the pywebview desktop interface for native window operations.
+* **License:** MIT License
+* **Repository:** https://github.com/pythonnet/pythonnet
+
+---
+
+### 8. kancolle_map_edges.json
+
+* **Usage:** Resolving KanColle map routes and battle-node relationships for map and sortie display.
+* **Source Repository:** https://github.com/kcwiki/kancolle-data
+* **Source File:** https://raw.githubusercontent.com/kcwiki/kancolle-data/master/map/edge.json
+* **License:** MIT License
+
+---
+
+### 9. kancolle_ship_names.json
+
+* **Usage:** Resolving KanColle ship IDs to ship names for ship and battle information display.
+* **Source Repository:** https://github.com/kcwiki/kancolle-data
+* **Source File:** https://raw.githubusercontent.com/kcwiki/kancolle-data/refs/heads/master/wiki/ship.json
+* **License:** MIT License
+
+
+---
+
+### 10. kccp_quest_translations.json
+
+* **Usage:** Resolving English quest titles by KanColle quest ID.
+* **Source Repository:** https://github.com/Oradimi/KanColle-English-Patch-KCCP
+* **Source File:** https://raw.githubusercontent.com/Oradimi/KanColle-English-Patch-KCCP/refs/heads/master/EN-patch/kcs2/js/main.js/ignore-raw_text_translations/ignore-_quests.json
+* **License:** MIT License
+
+---
+
+### 11. quest_title_translations.json
+
+* **Usage:** Legacy/fallback translation of KanColle quest titles from Japanese to English when an ID-based translation is unavailable.
+* **Source Repository:** https://github.com/Oradimi/KanColle-English-Patch-KCCP
+* **Source File:** https://github.com/Oradimi/KanColle-English-Patch-KCCP/blob/master/EN-patch/kcs2/js/main.js/ignore-raw_text_translations/ignore-_quests.json
+* **License:** MIT License
+
+---
+
+### 12. ship_banner_id_map.json
+
+* **Usage:** Mapping KanColle ship IDs to their corresponding ship-banner asset metadata for ship identification and banner display.
+* **Source / Extraction Reference:** KCCacheProxy
+* **Source Repository:** https://github.com/Tibowl/KCCacheProxy
+* **Source Data:** `cache.json`, extracted from `cache-2026-01-09.zip`
+* **Source Archive:** https://tsunkit.net/kccp/cache-2026-01-09.zip
+* **Method:** The data was extracted from the KanColle cache data and transformed into the `ship_banner_id_map.json` mapping used by this application.
+* **License:** Unspecified (no explicit license identified for the underlying KanColle cache data)
+
+---
+
+### 13. PyInstaller
+
+* **Usage:** Packaging the Python application into standalone Windows executable files. Its bootloader is embedded in the distributed executable.
+* **License:** GNU General Public License v2.0 or later, with PyInstaller Bootloader Exception
+* **Repository:** https://github.com/pyinstaller/pyinstaller
+
+---
+
+### Python Standard Library
+
+This software also uses modules provided by Python's standard library, including `tkinter`, `json`, `ctypes`, `urllib`, `threading`, `queue`, `random`, `re`, `webbrowser`, `winreg`, and `winsound`, which are distributed under the applicable Python Software Foundation license terms.
+
+---

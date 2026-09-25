@@ -1,0 +1,390 @@
+{
+  "1": {
+    "master_id": 237,
+    "name": "Inazuma/Kai"
+  },
+  "10": {
+    "master_id": 205,
+    "name": "Murakumo/Kai"
+  },
+  "12": {
+    "master_id": 201,
+    "name": "Fubuki/Kai"
+  },
+  "15": {
+    "master_id": 301,
+    "name": "Akigumo/Kai"
+  },
+  "23": {
+    "master_id": 216,
+    "name": "Tama/Kai"
+  },
+  "27": {
+    "master_id": 231,
+    "name": "Akebono/Kai"
+  },
+  "31": {
+    "master_id": 252,
+    "name": "Arare/Kai"
+  },
+  "38": {
+    "master_id": 428,
+    "name": "Maya/Kai Ni"
+  },
+  "49": {
+    "master_id": 52,
+    "name": "Tatsuta"
+  },
+  "55": {
+    "master_id": 53,
+    "name": "Natori"
+  },
+  "60": {
+    "master_id": 277,
+    "name": "Akagi/Kai"
+  },
+  "61": {
+    "master_id": 13,
+    "name": "Ayanami"
+  },
+  "62": {
+    "master_id": 215,
+    "name": "Kuma/Kai"
+  },
+  "64": {
+    "master_id": 51,
+    "name": "Tenryuu"
+  },
+  "65": {
+    "master_id": 60,
+    "name": "Kako"
+  },
+  "68": {
+    "master_id": 38,
+    "name": "Hatsuharu"
+  },
+  "73": {
+    "master_id": 58,
+    "name": "Kitakami/Kai"
+  },
+  "75": {
+    "master_id": 217,
+    "name": "Kiso/Kai"
+  },
+  "77": {
+    "master_id": 243,
+    "name": "Shigure/Kai"
+  },
+  "88": {
+    "master_id": 63,
+    "name": "Nachi"
+  },
+  "92": {
+    "master_id": 250,
+    "name": "Michishio/Kai"
+  },
+  "110": {
+    "master_id": 269,
+    "name": "Takao/Kai"
+  },
+  "111": {
+    "master_id": 123,
+    "name": "Kinugasa"
+  },
+  "118": {
+    "master_id": 67,
+    "name": "Atago"
+  },
+  "122": {
+    "master_id": 69,
+    "name": "Choukai"
+  },
+  "134": {
+    "master_id": 73,
+    "name": "Mogami/Kai"
+  },
+  "141": {
+    "master_id": 64,
+    "name": "Ashigara"
+  },
+  "151": {
+    "master_id": 239,
+    "name": "Nenohi/Kai"
+  },
+  "152": {
+    "master_id": 65,
+    "name": "Haguro"
+  },
+  "158": {
+    "master_id": 88,
+    "name": "Hyuuga/Kai"
+  },
+  "159": {
+    "master_id": 85,
+    "name": "Kirishima"
+  },
+  "160": {
+    "master_id": 284,
+    "name": "Junyou/Kai"
+  },
+  "164": {
+    "master_id": 23,
+    "name": "Yura"
+  },
+  "175": {
+    "master_id": 82,
+    "name": "Ise/Kai"
+  },
+  "185": {
+    "master_id": 951,
+    "name": "Amatsukaze/Kai Ni"
+  },
+  "187": {
+    "master_id": 18,
+    "name": "Shiranui"
+  },
+  "189": {
+    "master_id": 96,
+    "name": "Ooshio"
+  },
+  "191": {
+    "master_id": 625,
+    "name": "Akishimo"
+  },
+  "198": {
+    "master_id": 210,
+    "name": "Hiei/Kai"
+  },
+  "201": {
+    "master_id": 61,
+    "name": "Aoba"
+  },
+  "232": {
+    "master_id": 107,
+    "name": "Chiyoda/A"
+  },
+  "252": {
+    "master_id": 113,
+    "name": "Kinu"
+  },
+  "260": {
+    "master_id": 59,
+    "name": "Furutaka"
+  },
+  "269": {
+    "master_id": 229,
+    "name": "Shimakaze/Kai"
+  },
+  "290": {
+    "master_id": 42,
+    "name": "Shiratsuyu"
+  },
+  "310": {
+    "master_id": 425,
+    "name": "Asashimo"
+  },
+  "335": {
+    "master_id": 290,
+    "name": "Abukuma/Kai"
+  },
+  "393": {
+    "master_id": 17,
+    "name": "Kagerou"
+  },
+  "405": {
+    "master_id": 479,
+    "name": "Amagiri"
+  },
+  "422": {
+    "master_id": 944,
+    "name": "Heian Maru"
+  },
+  "478": {
+    "master_id": 286,
+    "name": "Fusou/Kai"
+  },
+  "525": {
+    "master_id": 209,
+    "name": "Kongou/Kai"
+  },
+  "534": {
+    "master_id": 561,
+    "name": "Samuel B. Roberts"
+  },
+  "544": {
+    "master_id": 457,
+    "name": "Yamakaze"
+  },
+  "576": {
+    "master_id": 98,
+    "name": "Arashio"
+  },
+  "577": {
+    "master_id": 942,
+    "name": "Richard P. Leary"
+  },
+  "629": {
+    "master_id": 57,
+    "name": "Ooi/Kai"
+  },
+  "670": {
+    "master_id": 95,
+    "name": "Asashio"
+  },
+  "701": {
+    "master_id": 343,
+    "name": "Katori/Kai"
+  },
+  "739": {
+    "master_id": 276,
+    "name": "Mutsu/Kai"
+  },
+  "760": {
+    "master_id": 27,
+    "name": "Yamashiro"
+  },
+  "790": {
+    "master_id": 396,
+    "name": "Gambier Bay/Kai"
+  },
+  "820": {
+    "master_id": 79,
+    "name": "Haruna"
+  },
+  "828": {
+    "master_id": 280,
+    "name": "Hiryuu/Kai"
+  },
+  "870": {
+    "master_id": 84,
+    "name": "Kaga"
+  },
+  "906": {
+    "master_id": 90,
+    "name": "Souryuu"
+  },
+  "907": {
+    "master_id": 112,
+    "name": "Zuikaku/Kai"
+  },
+  "950": {
+    "master_id": 110,
+    "name": "Shoukaku"
+  },
+  "981": {
+    "master_id": 127,
+    "name": "I-58"
+  },
+  "1043": {
+    "master_id": 882,
+    "name": "I-203"
+  },
+  "1045": {
+    "master_id": 191,
+    "name": "I-19"
+  },
+  "1113": {
+    "master_id": 881,
+    "name": "I-201"
+  },
+  "1150": {
+    "master_id": 992,
+    "name": "Sugi"
+  },
+  "1214": {
+    "master_id": 898,
+    "name": "Kaiboukan No.22"
+  },
+  "1237": {
+    "master_id": 638,
+    "name": "Kaiboukan No.30"
+  },
+  "1249": {
+    "master_id": 228,
+    "name": "Yukikaze/Kai"
+  },
+  "1260": {
+    "master_id": 330,
+    "name": "Akizuki/Kai"
+  },
+  "1336": {
+    "master_id": 699,
+    "name": "Souya"
+  },
+  "1345": {
+    "master_id": 484,
+    "name": "Hamanami"
+  },
+  "1348": {
+    "master_id": 133,
+    "name": "Yuugumo"
+  },
+  "1353": {
+    "master_id": 137,
+    "name": "Agano"
+  },
+  "1369": {
+    "master_id": 953,
+    "name": "Asahi"
+  },
+  "1401": {
+    "master_id": 493,
+    "name": "I-400"
+  },
+  "1412": {
+    "master_id": 451,
+    "name": "Mizuho"
+  },
+  "1415": {
+    "master_id": 527,
+    "name": "Kishinami"
+  },
+  "1439": {
+    "master_id": 637,
+    "name": "Kaiboukan No.4"
+  },
+  "1689": {
+    "master_id": 115,
+    "name": "Yuubari"
+  },
+  "1763": {
+    "master_id": 164,
+    "name": "Yayoi"
+  },
+  "1839": {
+    "master_id": 164,
+    "name": "Yayoi"
+  },
+  "1840": {
+    "master_id": 56,
+    "name": "Naka"
+  },
+  "1841": {
+    "master_id": 98,
+    "name": "Arashio"
+  },
+  "1842": {
+    "master_id": 37,
+    "name": "Inazuma"
+  },
+  "1843": {
+    "master_id": 14,
+    "name": "Shikinami"
+  },
+  "1844": {
+    "master_id": 94,
+    "name": "Sazanami"
+  },
+  "1845": {
+    "master_id": 19,
+    "name": "Kuroshio"
+  },
+  "1846": {
+    "master_id": 52,
+    "name": "Tatsuta"
+  },
+  "1847": {
+    "master_id": 96,
+    "name": "Ooshio"
+  }
+}

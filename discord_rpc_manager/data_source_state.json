@@ -1,0 +1,32 @@
+{
+  "kancolle_map_edges.json": {
+    "etag": "\"1690916cff1d734d2fddda503f17c015141c8229266ad909ad3da4252bedf053\"",
+    "last_checked": 1790232340.545925,
+    "last_modified": null,
+    "url": "https://raw.githubusercontent.com/kcwiki/kancolle-data/master/map/edge.json"
+  },
+  "kancolle_ship_names.json": {
+    "etag": "\"844f89ed42008ff85531121266840c1a2f9871eec4fd09a324c6be1792df0632\"",
+    "last_checked": 1790318701.1096923,
+    "last_modified": null,
+    "url": "https://raw.githubusercontent.com/kcwiki/kancolle-data/refs/heads/master/wiki/ship.json"
+  },
+  "kccp_quest_translations.json": {
+    "etag": "\"e6a9397ad4fc1fc6c7d5140aa69b7979c3a2ca059109028a441e4cd8eeecd2f3\"",
+    "last_checked": 1790281007.7790143,
+    "last_modified": null,
+    "url": "https://raw.githubusercontent.com/Oradimi/KanColle-English-Patch-KCCP/refs/heads/master/EN-patch/kcs2/js/main.js/ignore-raw_text_translations/ignore-_quests.json"
+  },
+  "quest_title_translations.json": {
+    "etag": "\"5bf1334cb13a8e803ca4c2cfca0e9b73a9fb62b2c90f3772386914b9ee7b7877\"",
+    "last_checked": 1790318700.2951655,
+    "last_modified": null,
+    "url": "https://raw.githubusercontent.com/Yukie23212/KanColle-Discord-RPC/refs/heads/main/discord_rpc_manager/quest_title_translations.json"
+  },
+  "ship_banner_id_map.json": {
+    "etag": "\"1def8b5767adc00c4c2f86da61cf7c69b8c38308a01f934f2249af71081d4563\"",
+    "last_checked": 1790318700.743966,
+    "last_modified": null,
+    "url": "https://raw.githubusercontent.com/Yukie23212/KanColle-Discord-RPC/refs/heads/main/discord_rpc_manager/ship_banner_id_map.json"
+  }
+}
