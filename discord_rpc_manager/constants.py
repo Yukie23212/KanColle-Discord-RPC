@@ -68,6 +68,12 @@ DEFAULT_CONFIG = {
     "auto_start_monitoring": False,
     "start_with_windows": False,
     "light_theme": False,
+    # 0 = never auto-stop. Otherwise: if no configured/enabled process has
+    # been found running for this many minutes straight, the monitor stops
+    # itself (see monitor.py). Off by default -- the scan itself is cheap
+    # (one psutil.process_iter() pass every check_interval_seconds), so
+    # this exists for tidiness/"don't run forever unattended" rather than
+    # because idle scanning meaningfully costs CPU.
     "idle_auto_stop_minutes": 0,
     "custom_templates": {},
     "stage_template_defaults": STAGE_TEMPLATE_CONFIG_DEFAULTS,

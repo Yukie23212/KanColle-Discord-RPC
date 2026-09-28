@@ -95,6 +95,9 @@ class GroupDialog(tk.Toplevel):
         ttk.Label(
             widget_frame,
             text=(
+                "Widget V2 App ID, User ID, and Bot Token are stored separately from config.json\n"
+                "and are never included in a shared config file. Leave Bot Token blank when\n"
+                "editing to keep the local token.\n\n"
                 "Value Template accepts the same {admiral_level} etc. placeholders as\n"
                 "Details/State -- add your own text around it, e.g. \"{admiral_level} [Taisho]\",\n"
                 "and only re-type it yourself when the hand-written part needs to change.\n"

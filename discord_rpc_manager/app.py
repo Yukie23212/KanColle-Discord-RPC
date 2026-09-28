@@ -13,7 +13,7 @@ from tkinter import ttk, messagebox, filedialog
 from .constants import APP_TITLE, DEFAULT_INTERVAL, DEFAULT_CONFIG
 from .config import (
     CONFIG_PATH, load_config, save_config, _normalize_group, _normalize_variant,
-    set_start_with_windows, get_data_dir,
+    set_start_with_windows, get_data_dir, load_last_config_path, save_last_config_path,
 )
 from .cdp_watcher import CDP_AVAILABLE
 from .dialogs import GroupDialog, VariantDialog, CustomTemplatesDialog
@@ -40,10 +40,20 @@ class App(tk.Tk):
         super().__init__()
         self.iconbitmap(resource_path("icon.ico"))
 
-        self.active_config_path = CONFIG_PATH
+        last_config_path = load_last_config_path()
+        if last_config_path and os.path.isfile(last_config_path):
+            self.active_config_path = os.path.abspath(last_config_path)
+        else:
+            self.active_config_path = CONFIG_PATH
         self.title(APP_TITLE)
 
-        self.config_data = load_config()
+        # Keep the existing first-run legacy-config migration when using the
+        # built-in default path; explicit shared/alternate configs load directly.
+        if self.active_config_path == CONFIG_PATH:
+            self.config_data = load_config()
+        else:
+            self.config_data = load_config(self.active_config_path)
+        save_last_config_path(self.active_config_path)
         self.log_queue = queue.Queue()
         self.status_queue = queue.Queue()
         self.monitor = None
@@ -143,21 +153,31 @@ class App(tk.Tk):
                 winsound.SND_ALIAS | winsound.SND_ASYNC,
             )
         except Exception:
+            # Sound notification is only a convenience; never let it break
+            # opening the config dialog.
             pass
 
     def _open_config(self):
         if not self._confirm_discard_if_monitoring():
             return
         self._notify_config_dialog_open()
+        dialog_dir = os.path.dirname(self.active_config_path)
+        if not os.path.isdir(dialog_dir):
+            dialog_dir = os.path.dirname(CONFIG_PATH)
         path = filedialog.askopenfilename(
-            title="Open Config", filetypes=[("JSON config", "*.json"), ("All files", "*.*")]
+            title="Open Config",
+            initialdir=dialog_dir,
+            initialfile=os.path.basename(self.active_config_path),
+            filetypes=[("JSON config", "*.json"), ("All files", "*.*")]
         )
         if not path:
             return
         if self.monitor and self.monitor.is_alive():
             self._toggle_monitor()
+        path = os.path.abspath(path)
         self.config_data = load_config(path)
         self.active_config_path = path
+        save_last_config_path(self.active_config_path)
         self._load_config_into_ui()
         self._append_log(f"Loaded config from {path}")
 
@@ -172,8 +192,9 @@ class App(tk.Tk):
         )
         if not path:
             return
-        self.active_config_path = path
+        self.active_config_path = os.path.abspath(path)
         self._save_config()
+        save_last_config_path(self.active_config_path)
         self._update_title()
         self._append_log(f"Saved to {path}")
 
@@ -444,7 +465,9 @@ class App(tk.Tk):
             group["widget_v2_enabled"] = dlg.result["widget_v2_enabled"]
             group["widget_v2_app_id"] = dlg.result["widget_v2_app_id"]
             group["widget_v2_user_id"] = dlg.result["widget_v2_user_id"]
-            group["widget_v2_bot_token"] = dlg.result["widget_v2_bot_token"]
+            token = dlg.result["widget_v2_bot_token"]
+            if token:
+                group["widget_v2_bot_token"] = token
             group["widget_v2_field_name"] = dlg.result["widget_v2_field_name"]
             group["widget_v2_value_template"] = dlg.result["widget_v2_value_template"]
             self._save_config()
@@ -715,6 +738,8 @@ class App(tk.Tk):
             self.start_stop_btn.config(text="Stop Monitoring")
 
     def _apply_changes(self):
+        """Save the current configuration and restart a running monitor so
+        runtime settings such as CDP port are read again."""
         try:
             self._save_config()
         except Exception as e:
@@ -788,6 +813,10 @@ class App(tk.Tk):
         except queue.Empty:
             pass
         if self.monitor is not None and not self.monitor.is_alive():
+            # The monitor thread ended on its own (idle auto-stop, or an
+            # unhandled error) rather than via the Stop button -- without
+            # this, the button would be stuck reading "Stop Monitoring"
+            # even though nothing is running anymore.
             self.monitor = None
             self.start_stop_btn.config(text="Start Monitoring")
         self.after(300, self._poll_queues)

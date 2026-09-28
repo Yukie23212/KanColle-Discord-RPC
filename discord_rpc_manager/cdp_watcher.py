@@ -28,6 +28,10 @@ QUEST_TITLE_TRANSLATIONS_URL = (
     "refs/heads/main/discord_rpc_manager/quest_title_translations.json"
 )
 
+# KCCP keeps quest translations in one flat JSON object. Each quest starts
+# with a `_quest_id_<id>` marker, followed by the translated title and
+# translated description. Keep a transformed local cache keyed by the real
+# KanColle quest ID so the watcher can resolve titles directly by ID.
 QUEST_ID_TRANSLATIONS_NAME = "kccp_quest_translations.json"
 QUEST_ID_TRANSLATIONS_URL = (
     "https://raw.githubusercontent.com/Oradimi/KanColle-English-Patch-KCCP/"
@@ -51,6 +55,9 @@ SHIP_MASTER_DATA_URL = (
     "refs/heads/master/wiki/ship.json"
 )
 
+# Existing files are used immediately. At most once per day, the app checks
+# whether the configured upstream has changed. Conditional requests (ETag /
+# Last-Modified) avoid downloading the body when the source has not changed.
 SOURCE_UPDATE_CHECK_SECONDS = 24 * 60 * 60
 SOURCE_METADATA_NAME = "data_source_state.json"
 
@@ -154,6 +161,15 @@ def _sync_json_source(
     validate=lambda data: isinstance(data, dict),
     log_fn=None,
 ):
+    """Ensure an external JSON exists and periodically refresh it from URL.
+
+    Existing valid files are used immediately. When the update interval is
+    reached, a conditional request checks the upstream. A 304 keeps the local
+    file untouched; a 200 replaces it only after validation/transformation.
+    When the local file is missing/corrupt, an unconditional GET is attempted
+    immediately. If the network is unavailable, a bundled copy is used when
+    available.
+    """
     if not url:
         if log_fn:
             log_fn(f"[Data] {name}: source URL not configured; using local/bundled copy.")
@@ -163,6 +179,8 @@ def _sync_json_source(
     local_data = _load_json_file(runtime_path)
     bundled_data = None
     if local_data is None:
+        # Search only bundled/package copies for recovery, not the runtime
+        # path again.
         bundled_candidates = []
         if getattr(sys, "frozen", False):
             bundled_candidates.extend([
@@ -228,6 +246,9 @@ def _sync_json_source(
             conditional_headers["If-Modified-Since"] = state["last_modified"]
 
     try:
+        # If we don't have a source version yet, use HEAD first so the first
+        # launch with an existing file does not unnecessarily download the
+        # whole upstream payload.
         if not conditional_headers:
             try:
                 head = _source_request(url, method="HEAD")
@@ -282,6 +303,10 @@ def _load_json_mapping(candidates):
 def _data_file_candidates(name):
     candidates = []
     if getattr(sys, "frozen", False):
+        # In a frozen build, runtime data next to the EXE must take priority
+        # over the bundled _MEIPASS copy. Source sync writes refreshed files
+        # here, so the running app must read the refreshed version on the
+        # next lookup instead of falling back to the stale bundled copy.
         candidates.append(os.path.join(os.path.dirname(sys.executable), RUNTIME_DATA_DIR_NAME, name))
         candidates.append(os.path.join(os.path.dirname(sys.executable), name))
         candidates.append(os.path.join(getattr(sys, "_MEIPASS", ""), name))
@@ -309,6 +334,17 @@ def _load_quest_title_translations(log_fn=None):
 
 
 def _transform_kccp_quest_translations(source):
+    """Transform KCCP's flat quest translation table into ID-keyed data.
+
+    KCCP stores entries in this order:
+        _quest_id_101: _quest_code_A1
+        <Japanese quest title>: <English title>
+        <Japanese quest description>: <English description>
+
+    The marker gives us the real KanColle quest ID, so the resulting cache
+    can resolve a quest without comparing its Japanese title. JSON object
+    insertion order is preserved by Python, matching the source layout.
+    """
     if not isinstance(source, dict):
         raise ValueError("KCCP quest source is not an object")
 
@@ -345,6 +381,8 @@ def _transform_kccp_quest_translations(source):
         if description_key is not None and not marker_re.fullmatch(str(description_key)):
             entry["description"] = source.get(description_key, "")
 
+        # Only keep entries that have at least a translated title. This also
+        # prevents malformed trailing markers from becoming usable records.
         if entry.get("title") not in (None, ""):
             result[quest_id] = entry
 
@@ -374,6 +412,14 @@ def _load_ship_banner_id_map(log_fn=None):
 
 
 def _load_ship_instance_master_map():
+    """Load the persistent instance -> ship cache.
+
+    Current format:
+        {"478": {"master_id": 286, "name": "Fusou/Kai"}}
+
+    Older builds stored only the integer master ID, so accept that format
+    too and let the next authoritative /api_port/port sync upgrade it.
+    """
     data = _load_json_mapping(_data_file_candidates(SHIP_INSTANCE_MASTER_MAP_NAME))
     normalized = {}
     for ship_id, entry in data.items():
@@ -394,6 +440,7 @@ def _load_ship_instance_master_map():
             }
             continue
 
+        # Backward compatibility with the old {instance_id: master_id} form.
         try:
             normalized[ship_key] = {"master_id": int(entry), "name": ""}
         except (TypeError, ValueError):
@@ -402,9 +449,12 @@ def _load_ship_instance_master_map():
 
 
 def _load_ship_name_cache():
+    # Runtime copy is preferred; bundled copy is the offline recovery copy.
     return _load_json_mapping(_data_file_candidates(SHIP_NAME_CACHE_NAME))
 
 
+# Expedition results replace the configured Details template until the next
+# /api_port/port refresh restores the normal configured Details template.
 EXPEDITION_DETAILS_TEMPLATE = "Expedition Complete: Fleet {fleet_name} 「{fleet_ship_count}/6 ships」"
 
 
@@ -429,6 +479,8 @@ def _load_map_edges(log_fn=None):
         local_data = _load_json_file(cache_path) or {}
         runtime_missing = not bool(local_data)
 
+        # If the runtime copy is missing/corrupt, try the bundled copy first
+        # so the packaged EXE remains usable even without network access.
         if not local_data:
             bundled_candidates = _data_file_candidates(MAP_EDGE_CACHE_NAME)
             for candidate in bundled_candidates:
@@ -548,6 +600,12 @@ except Exception:
 
 
 class KancolleCDPWatcher(threading.Thread):
+    # How long a short-lived event message (battle/exercise/expedition
+    # result) resists being overwritten by the next routine port/record
+    # refresh. Without this, returning to port right after collecting an
+    # expedition or finishing a battle -- which happens almost
+    # immediately -- would wipe the result message before it's ever
+    # actually seen in Discord.
     TRANSIENT_STATUS_HOLD_SECONDS = 45
     EXPEDITION_RESULT_HOLD_SECONDS = 10
 
@@ -625,15 +683,28 @@ class KancolleCDPWatcher(threading.Thread):
         self._warned_once = False
         self._seen_endpoints = set()
         self._seen_problems = set()
+        # fleet_id (api_id, e.g. 1/2/3/4) -> {"name": ..., "ships": [...]}
+        # for ALL fleets, not just fleet 1 -- used to identify which fleet
+        # an expedition result belongs to (expeditions run on fleets 2-4,
+        # which fleet_name/fleet_status never covered before).
         self._known_fleets = {}
+        # ship instance id -> latest raw ship record; used for derived
+        # Fleet #1 placeholders such as HP %, damaged count and average level.
         self._known_ships = {}
         self._known_quests = {}
         self._quest_title_translations = _load_quest_title_translations(self._log)
         self._quest_id_translations = _load_quest_id_translations(self._log)
         self._ship_banner_id_map = _load_ship_banner_id_map(self._log)
+        # Persistent account-local cache: owned ship instance ID -> final resolved
+        # master ID + display name.  /api_port/port is the authoritative source
+        # that refreshes this cache; Repair Dock reads it as the persistent
+        # fallback after checking the live in-memory ship record first.
         self._ship_instance_master_map = _load_ship_instance_master_map()
         self._ship_master_names = _load_ship_name_cache()
         self._ship_name_fetch_attempted = False
+        # Perform the source-version check at startup. Existing valid data is
+        # used immediately; the helper only downloads when the source has
+        # actually changed or the local cache is missing/corrupt.
         self._refresh_ship_name_cache()
         self._repair_docks = {}
         self._repair_selected_dock_id = None
@@ -643,6 +714,10 @@ class KancolleCDPWatcher(threading.Thread):
         self._fleet1_name = None
         self._fleet1_ship_count = None
         self._fleet1_total_slots = None
+        # Values captured when a short-lived stage begins. During the
+        # Expedition Result hold, routine port/fleet refreshes can update the
+        # base snapshot to Fleet #1 even though the result belongs to another
+        # fleet. Keep the stage's captured values visible until the hold ends.
         self._presence_stage_context = {}
         self._kancolle_debug_last = None
 
@@ -706,6 +781,16 @@ class KancolleCDPWatcher(threading.Thread):
         return text
 
     def _sync_ship_records(self, ships, persist_instance_master_map=False):
+        """Cache owned ships and optionally refresh the persistent mapping.
+
+        For /api_port/port the fields are authoritative:
+          api_id -> owned ship instance ID
+          api_ship_id -> master ship ID
+
+        The persistent entry stores the final resolved result too, so Repair
+        Dock can later go straight from instance ID -> name without another
+        master-name lookup.
+        """
         if not isinstance(ships, list):
             return
 
@@ -736,6 +821,9 @@ class KancolleCDPWatcher(threading.Thread):
             if not persist_instance_master_map:
                 continue
 
+            # /api_port/port is authoritative: refresh the persistent entry
+            # whenever the master ID changes, or when the resolved name was
+            # missing/stale. This also upgrades older integer-only entries.
             name = self._resolve_ship_name(master_value)
             current = self._ship_instance_master_map.get(instance_key)
             desired = {
@@ -809,6 +897,12 @@ class KancolleCDPWatcher(threading.Thread):
         })
 
     def _translate_quest_title(self, title, quest_id=None):
+        """Resolve a quest title by real quest ID first, then by old title map.
+
+        The KCCP source provides explicit `_quest_id_<id>` markers, so ID is
+        the preferred key. The older title-based mapping remains as a
+        fallback for compatibility with quests not present in KCCP.
+        """
         if quest_id not in (None, ""):
             try:
                 quest_key = str(int(quest_id))
@@ -874,6 +968,12 @@ class KancolleCDPWatcher(threading.Thread):
             if not names:
                 raise ValueError("ship source contained no usable API-ID/name entries")
             return names
+
+        # The generated cache is derived from the source. Existing valid
+        # cache data is kept immediately; the source is checked at most once
+        # per day using conditional requests. Missing/corrupt cache data is
+        # downloaded immediately, with the bundled copy acting as offline
+        # recovery.
         _sync_json_source(
             SHIP_NAME_CACHE_NAME,
             SHIP_MASTER_DATA_URL,
@@ -953,21 +1053,26 @@ class KancolleCDPWatcher(threading.Thread):
         dock_key = str(dock_id)
         ship_key = str(ship_id)
         if master_id in (None, ""):
-
+            # Primary source: the latest owned-ship record already received
+            # from /api_port/port (or another ship-list refresh). The record
+            # maps the repair request's instance ID directly to api_ship_id.
             known_ship = self._known_ships.get(ship_key)
             if isinstance(known_ship, dict):
                 master_id = known_ship.get("api_ship_id")
 
         persistent_name = ""
         if master_id in (None, ""):
-
+            # Persistent final-result cache for restarts or when the live ship
+            # record is not available yet. Prefer the cached name directly.
             cached = self._lookup_ship_instance_record(ship_key)
             if cached:
                 master_id = cached.get("master_id")
                 persistent_name = cached.get("name", "")
 
         if master_id in (None, ""):
-
+            # Legacy last-resort fallback for captures where the ship list was
+            # not received before the repair request. This must not become the
+            # persistent source of truth; /api_port/port will refresh the cache.
             latest = self._last_ship_banner
             if latest and (time.time() - float(latest.get("seen_at") or 0)) <= 8.0:
                 master_id = latest.get("master_id")
@@ -1007,7 +1112,9 @@ class KancolleCDPWatcher(threading.Thread):
                     "item4": dock.get("api_item4", ""),
                 })
 
-
+                # /api_get_member/ndock normally gives us only the owned ship
+                # instance ID. The persistent cache stores the final resolved
+                # master ID + name, so use that directly on a cache hit.
                 if not record.get("master_id") and record.get("ship_id"):
                     cached = self._lookup_ship_instance_record(record["ship_id"])
                     if cached:
@@ -1150,6 +1257,9 @@ class KancolleCDPWatcher(threading.Thread):
         self._presence_stage_context = {}
         if after_hold != "expedition_result":
             self._snapshot["expedition_result"] = ""
+            # Clear the legacy expedition Details override together with the
+            # stage so it cannot keep replacing the user's normal Details
+            # after the 10-second result display expires.
             self._snapshot["presence_details_override"] = None
             self._snapshot["presence_details_override_clear_pending"] = False
             self._snapshot["presence_details_override_hold_until"] = 0.0
@@ -1176,6 +1286,9 @@ class KancolleCDPWatcher(threading.Thread):
             self._snapshot.update(updates)
 
     def _set_transient_status(self, text):
+        """Set fleet_status to a short-lived event message and protect it
+        from the next routine port/record refresh for a while (see
+        TRANSIENT_STATUS_HOLD_SECONDS)."""
         self._update_snapshot({"fleet_status": text})
         self._transient_status_until = time.time() + self.TRANSIENT_STATUS_HOLD_SECONDS
 
@@ -1190,6 +1303,10 @@ class KancolleCDPWatcher(threading.Thread):
         })
 
     def _set_details_override(self, text):
+        """Legacy expedition Details override, retained for old configs.
+
+        New stage templates take precedence over this override.
+        """
         self._update_snapshot({
             "presence_details_override": text,
             "presence_details_override_clear_pending": False,
@@ -1217,6 +1334,12 @@ class KancolleCDPWatcher(threading.Thread):
                 )
 
     def _identify_fleet(self, ship_ids):
+        """Match an expedition result's ship_id list against the last-known
+        composition of each fleet, by the SET of real (non -1) ship ids --
+        not exact list equality, since slot count/order isn't guaranteed
+        to line up between 'ships sent on the mission' and 'current deck
+        composition'. Returns (fleet_id, fleet_name) or None if no fleet
+        matches (e.g. ships were swapped out mid-expedition)."""
         if not isinstance(ship_ids, list):
             return None
         wanted = {s for s in ship_ids if isinstance(s, int) and s > 0}
@@ -1323,7 +1446,10 @@ class KancolleCDPWatcher(threading.Thread):
                         current_stage = self._snapshot.get("presence_stage") or "in_port"
 
                     self._clear_quest_context()
-
+                    # Expedition Result gets a short display hold. The game can
+                    # emit another /api_port/port immediately after the result
+                    # response, so do not let that request erase the result
+                    # before the 10-second hold has elapsed.
                     if current_stage == "expedition_result":
                         with self._lock:
                             expedition_hold_until = float(
@@ -1443,7 +1569,17 @@ class KancolleCDPWatcher(threading.Thread):
                     status += f" {world_text}"
                 self._set_presence_stage("in_battle", fleet_status=status)
 
-
+            # Combined fleet sorties (two fleets joined for harder maps/
+            # events) use an entirely separate set of endpoints from a
+            # normal single-fleet sortie -- api_req_map/start still fires
+            # the same way for navigation, but the battle phases and
+            # result come through api_req_combined_battle/* instead of
+            # api_req_sortie/*. Without this, a combined sortie would just
+            # sit on "On Sortie: World X-Y" through the whole fight and
+            # never show engagement or a result. Endpoint names confirmed
+            # from public KanColle API documentation (not yet from a real
+            # capture -- day/night split by name, same as practice above).
+                        # Normal/single-fleet night battle.
             elif endpoint.startswith("api_req_battle_midnight/"):
                 map_area = self._snapshot.get("map_area", "")
                 map_info = self._snapshot.get("map_info", "")
@@ -1511,7 +1647,11 @@ class KancolleCDPWatcher(threading.Thread):
                 )
                 self._set_transient_status("Battle Result:")
 
-
+            # Expedition (mission) return. Identify the returning fleet using
+            # api_ship_id from the result against the last-known composition
+            # of every fleet. This is the proven identification method used
+            # by the original working watcher and supports custom fleet names.
+            # If the fleet cannot be identified, use "?" rather than guessing.
             elif endpoint == "api_req_mission/result":
                 request_deck_id = self._parse_request_field(request_body, "api_deck_id")
                 identified = None
@@ -1523,7 +1663,8 @@ class KancolleCDPWatcher(threading.Thread):
                     if fid in self._known_fleets:
                         identified = (fid, self._known_fleets[fid].get("name", ""))
 
-
+                # Fallback to the older ship-ID matching method if the request
+                # body was unavailable or did not identify a known fleet.
                 if identified is None:
                     identified = self._identify_fleet(payload.get("api_ship_id"))
 
@@ -1552,7 +1693,10 @@ class KancolleCDPWatcher(threading.Thread):
                     clear_result = None
                 expedition_result = result_labels.get(clear_result, "Unknown")
 
-
+                # Preserve the legacy result display, but use an explicit
+                # Details override so the user's normal Details template
+                # does not append the current Fleet 1 fields. The displayed
+                # ship count comes from the fleet that actually returned.
                 returning_ship_count = 0
                 if identified:
                     try:
@@ -1645,6 +1789,9 @@ class KancolleCDPWatcher(threading.Thread):
                 except (TypeError, ValueError):
                     quest_tab_id = "?"
 
+                # Keep the useful list-level information separate from the
+                # currently selected quest. The latter is filled by the
+                # start/stop endpoints below when they give us api_quest_id.
                 active_count = sum(
                     1 for q in quest_list
                     if q.get("api_state") == 2
@@ -1675,7 +1822,10 @@ class KancolleCDPWatcher(threading.Thread):
                 else:
                     event = "Completed"
 
-
+                # A completed quest is no longer represented by the active
+                # progress flag. For the presence layer, completion itself is
+                # the authoritative 100% state, so expose it consistently even
+                # when the completion request arrives without a fresh questlist.
                 progress_value = ""
                 if isinstance(quest, dict):
                     progress_value = quest.get("api_progress_flag", "")
@@ -1685,7 +1835,8 @@ class KancolleCDPWatcher(threading.Thread):
                 updates = {
                     "quest_id": quest_id_value,
                     "quest_event": event,
-
+                    # KCCP provides an explicit quest-ID marker, so resolve
+                    # the title by ID even when the quest list cache is empty.
                     "quest_title": self._translate_quest_title(
                         quest.get("api_title", "") if isinstance(quest, dict) else "",
                         quest_id_value,
@@ -1763,7 +1914,10 @@ class KancolleCDPWatcher(threading.Thread):
                 selected = self._select_repair_record(docks)
                 self._update_repair_snapshot_from_record(selected)
 
-
+                # Opening the Repair Dock is itself a live UI state, even when
+                # every dock is empty. The ndock endpoint marks the Dock UI
+                # transition; a later real port transition can then restore
+                # In Port normally.
                 self._set_presence_stage(
                     "repair_dock",
                     fleet_status="Repair Dock",

@@ -150,4 +150,12 @@ def _render_template(template, snapshot, custom_templates, resolving=None, depth
 
 
 def safe_format(template, snapshot, custom_templates=None):
+    """Fill a template from live data plus optional user-defined templates.
+
+    Built-in snapshot values take precedence over custom template names. A
+    custom template can contain built-in placeholders or other custom
+    templates, and recursive/cyclic references are safely capped. Explicit
+    snapshot values such as ``?`` remain untouched; only truly missing fields
+    become ``Unknown``.
+    """
     return _render_template(template, snapshot or {}, custom_templates or {})

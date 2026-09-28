@@ -15,6 +15,17 @@ from .widget_v2 import push_dynamic_field
 
 
 class RPCMonitor(threading.Thread):
+    """
+    Polls running processes on an interval and matches them against the
+    configured groups. The first time a group's process is seen running
+    (i.e. it just started), a variant is randomly chosen from that group
+    and stays active for as long as the process keeps running. When the
+    process closes, the choice is forgotten so the next launch can re-roll.
+
+    Because each Discord "Application" has its own Client ID, switching
+    from one active variant to another requires closing the old RPC
+    connection and opening a fresh one for the new Client ID.
+    """
 
     def __init__(self, get_groups, get_interval, log_queue, status_queue, get_idle_stop_minutes=None, get_custom_templates=None, get_stage_template_defaults=None):
         super().__init__(daemon=True)
@@ -28,8 +39,13 @@ class RPCMonitor(threading.Thread):
         self._stop_event = threading.Event()
         self._rpc = None
         self._connect_time = None
+        # Session timer is tied to the monitored-process session, not the
+        # Discord RPC connection. This keeps elapsed time continuous when
+        # the presence changes or the RPC connection is recreated.
         self._session_start_time = None
         self._session_process = None
+        # Last activity content sent to Discord, excluding the fixed start
+        # timestamp. This avoids needless SET_ACTIVITY calls on every poll.
         self._last_presence_signature = None
 
         
@@ -48,6 +64,11 @@ class RPCMonitor(threading.Thread):
         self._cdp_watcher = None
         self._cdp_watcher_owner = None
 
+        # Discord Widget V2 sync state, per process: remembers the last
+        # value attempted (and whether it succeeded) so an unchanged value
+        # is never re-pushed, and a failing push (bad token, offline,
+        # etc.) backs off instead of hammering Discord's API every scan
+        # interval.
         self._widget_v2_state = {}
         self._widget_v2_warned_no_cdp = set()
         self._widget_v2_warned_no_creds = set()
@@ -200,6 +221,13 @@ class RPCMonitor(threading.Thread):
         return {"name": name_text, "details": details_text, "state": state_text}
 
     def _apply_variant(self, process_name, variant, live_snapshot=None, announce=True, force=False):
+        """Connect (or reconnect if the client id changed) and push presence.
+        If live_snapshot is given, the variant's state/details are treated
+        as format-string templates (e.g. "HQ Lv.{admiral_level}") filled
+        from that snapshot instead of used as literal text. announce=False
+        suppresses the activity-log line, for silent periodic live-data
+        refreshes of an already-active variant (otherwise the log would
+        get a new line every scan interval just because HP ticked up)."""
         needs_new_connection = (
             self._rpc is None
             or self._active_variant is None
@@ -279,6 +307,9 @@ class RPCMonitor(threading.Thread):
         if buttons:
             payload["buttons"] = buttons[:2]
 
+        # Discord uses timestamps.start as the elapsed-time origin. Keep that
+        # fixed for the monitored-process session, and do not resend identical
+        # activity payloads merely because the live-data poll ran again.
         signature = tuple(
             sorted((key, repr(value)) for key, value in payload.items() if key != "start")
         )
@@ -378,6 +409,9 @@ class RPCMonitor(threading.Thread):
                     if match_group.get("cdp_watch") and self._cdp_watcher is not None
                     else None
                 )
+                # Establish the elapsed-time origin once for this monitored
+                # process session. Status changes, variant re-selection, and
+                # Discord reconnects do not create a new timer.
                 if self._session_process != match_process or self._session_start_time is None:
                     self._session_process = match_process
                     self._session_start_time = int(time.time())

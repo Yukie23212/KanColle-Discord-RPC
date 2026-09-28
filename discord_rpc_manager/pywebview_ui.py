@@ -61,6 +61,12 @@ def _set_native_titlebar_theme(window, light):
 
 
 def _start_backend(ready_queue):
+    """Create and run the existing Tk backend on its own thread.
+
+    pywebview requires its GUI loop to run on the main thread, while the
+    existing App uses Tk for backend/configuration state.  Keeping App's
+    mainloop in its own thread lets us reuse the existing backend unchanged.
+    """
     try:
         app = App()
         app.withdraw()
@@ -165,6 +171,8 @@ def run():
             def _activate():
                 was_topmost = bool(native.TopMost)
                 try:
+                    # Setting TopMost briefly bypasses Windows foreground/z-order
+                    # restrictions that can remain after the Tk file dialog closes.
                     native.TopMost = True
                     native.Show()
                     native.BringToFront()
@@ -178,6 +186,8 @@ def run():
                         pass
                 finally:
                     if not was_topmost:
+                        # Keep TopMost long enough for Windows to commit the
+                        # activation, then return the window to normal z-order.
                         def _clear_topmost_on_gui():
                             try:
                                 native.TopMost = False
@@ -205,6 +215,9 @@ def run():
                 _activate()
             return True
 
+        # web_ui.py runs its HTTP handler outside pywebview's GUI thread.
+        # Give it a callback that safely marshals activation onto the native
+        # WinForms thread, where Activate/BringToFront/TopMost are reliable.
         _bring_webview_to_front.focus_callback = focus_webview_window
 
         def close_when_requested():

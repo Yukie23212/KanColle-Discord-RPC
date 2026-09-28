@@ -29,6 +29,13 @@ def _set_webview_theme(light):
 
 
 def _bring_webview_to_front():
+    """Bring the pywebview window to the foreground after a native dialog closes.
+
+    The actual WinForms window is owned by pywebview's GUI thread.  Calling
+    SetForegroundWindow directly from the HTTP/Tk threads can be rejected by
+    Windows' foreground-lock rules, so pywebview_ui.py installs a callback that
+    marshals this operation onto the native window's GUI thread.
+    """
     focus_callback = getattr(_bring_webview_to_front, "focus_callback", None)
     if focus_callback is not None:
         try:
@@ -37,6 +44,8 @@ def _bring_webview_to_front():
         except Exception:
             pass
 
+    # Fallback for older/incompatible pywebview setups where the callback is
+    # not installed.  This is best-effort only.
     if os.name != "nt":
         return
     try:

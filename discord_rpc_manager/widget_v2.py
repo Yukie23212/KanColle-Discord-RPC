@@ -24,6 +24,17 @@ PROFILE_API_URL = (
 
 
 def push_dynamic_field(app_id, user_id, bot_token, field_name, value, field_type=1):
+    """PATCH a single 'dynamic' field onto the application-user profile.
+
+    field_type follows Discord's own convention here: 1 = string, 2 =
+    number, 3 = image (value would then be {"url": "..."}). Defaults to 1
+    (string) to match the JSON shape confirmed working in Haru's own
+    PowerShell script.
+
+    Returns (True, None) on success, or (False, error_message) on
+    failure -- never raises, so a bad token/network hiccup can't take
+    down the monitor thread.
+    """
     url = PROFILE_API_URL.format(app_id=app_id, user_id=user_id)
     body = json.dumps({
         "data": {
